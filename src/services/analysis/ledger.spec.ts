@@ -20,4 +20,13 @@ describe('Reviewed ledger', () => {
     const b = draft('date,name,amount,id\n2026-11-01,Food,-20,A');
     expect(() => assertCompatible(b, [a])).toThrow(/conflicts/);
   });
+  it('keeps separate accounts independent even when provider IDs overlap', () => {
+    const wallet = { id: 'wallet', draft: draft('date,name,amount,id\n2026-11-01,Food,-10,A') };
+    const bankDraft = draft('date,name,amount,id\n2026-11-01,Food,-20,A');
+    bankDraft.account = 'My bank ••1234';
+    expect(() => assertCompatible(bankDraft, [wallet])).not.toThrow();
+    const rows = ledgerTransactions([wallet, { id: 'bank', draft: bankDraft }]);
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map(row => row.account))).toEqual(new Set(['My wallet', 'My bank ••1234']));
+  });
 });

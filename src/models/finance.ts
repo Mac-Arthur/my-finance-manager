@@ -32,6 +32,10 @@ export interface Category {
 
 export interface Transaction {
   id: string;
+  /** Normalized source account key. Keeps balances and corrections scoped to one wallet. */
+  accountKey: string;
+  /** Friendly label detected from the statement, e.g. "MTN MoMo ••1234". */
+  account: string;
   date: Date;
   /** Raw MoMo payment type, e.g. "MOMO USER", "OTHER NETWORKS". */
   type: string;

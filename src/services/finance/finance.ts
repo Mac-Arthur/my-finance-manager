@@ -1,8 +1,9 @@
 import { Statements } from '../statements/statements';
-import { ledgerTransactions } from '../analysis/ledger';
+import { accountKey, ledgerTransactions } from '../analysis/ledger';
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { CATEGORIES, SPENDING_CATEGORIES } from '../../data/categories';
 import { Budget, CategoryId, Channel, Transaction } from '../../models/finance';
+import { findTransferCandidates } from './transfers';
 
 export interface CategoryTotal {
   id: CategoryId;
@@ -31,9 +32,21 @@ export interface SavingsGoal {
   saved: number;
 }
 
+export interface FinanceAccount {
+  key: string;
+  label: string;
+  transactionCount: number;
+  latestActivity: Date;
+  availableBalance: number | null;
+}
+
 const DAY = 86_400_000;
 const BUDGETS_KEY = 'mysika.budgets.v1';
 const GOAL_KEY = 'mysika.goal.v1';
+const TRANSFERS_KEY = 'mysika.transfer-matches.v1';
+const ALL_ACCOUNTS = '__all__';
+
+interface TransferDecisions { confirmed: string[]; dismissed: string[]; }
 
 const CHANNEL_LABELS: Record<Channel, string> = {
   momo: 'MoMo to MoMo',
@@ -62,23 +75,87 @@ export class Finance {
   private readonly store = inject(Statements);
   readonly currency = 'GHS';
 
-  /** All transactions, newest first. Later this comes from an import or an API. */
-  readonly allTransactions = computed(() => ledgerTransactions(this.store.confirmed()));
+  private readonly rawTransactions = computed(() => ledgerTransactions(this.store.confirmed()));
+  readonly transferDecisions = signal<TransferDecisions>(readJson(TRANSFERS_KEY, { confirmed: [], dismissed: [] }));
+  readonly transferCandidates = computed(() => findTransferCandidates(this.rawTransactions()));
+  readonly pendingTransferCandidates = computed(() => {
+    const decisions = this.transferDecisions();
+    return this.transferCandidates().filter(candidate => candidate.confidence === 'review' &&
+      !decisions.confirmed.includes(candidate.key) && !decisions.dismissed.includes(candidate.key));
+  });
+  readonly matchedTransferCandidates = computed(() => {
+    const decisions = this.transferDecisions();
+    return this.transferCandidates().filter(candidate => !decisions.dismissed.includes(candidate.key) &&
+      (candidate.confidence === 'automatic' || decisions.confirmed.includes(candidate.key)));
+  });
+  /** All transactions, with matched sides classified as internal moves. */
+  readonly allTransactions = computed(() => {
+    const matched = new Set(this.matchedTransferCandidates().flatMap(candidate => [candidate.outgoing.id, candidate.incoming.id]));
+    return this.rawTransactions().map(transaction => matched.has(transaction.id)
+      ? { ...transaction, category: 'own-accounts' as const }
+      : transaction);
+  });
+  /** Each imported wallet remains its own ledger. Combined totals come after transfer matching. */
+  readonly accounts = computed<FinanceAccount[]>(() => {
+    const grouped = new Map<string, Transaction[]>();
+    for (const transaction of this.allTransactions()) {
+      const rows = grouped.get(transaction.accountKey) ?? [];
+      rows.push(transaction);
+      grouped.set(transaction.accountKey, rows);
+    }
+    return [...grouped.entries()].map(([key, rows]) => ({
+      key,
+      label: rows[0].account,
+      transactionCount: rows.length,
+      latestActivity: rows[0].date,
+      availableBalance: rows.find(row => row.balance !== null)?.balance ?? null,
+    })).sort((a, b) => +b.latestActivity - +a.latestActivity || a.label.localeCompare(b.label));
+  });
+  readonly selectedAccountKey = signal<string | null>(null);
+  readonly canViewAllAccounts = computed(() => this.accounts().length > 1 && this.pendingTransferCandidates().length === 0);
+  readonly viewingAllAccounts = computed(() => this.selectedAccountKey() === ALL_ACCOUNTS && this.canViewAllAccounts());
+  readonly activeAccount = computed(() => {
+    const accounts = this.accounts();
+    if (this.viewingAllAccounts()) return null;
+    return accounts.find(account => account.key === this.selectedAccountKey()) ?? accounts[0] ?? null;
+  });
+  readonly accountSelection = computed(() => this.viewingAllAccounts() ? ALL_ACCOUNTS : this.activeAccount()?.key ?? '');
+  readonly allAccountsKey = ALL_ACCOUNTS;
+  selectAccount(key: string) {
+    if ((key === ALL_ACCOUNTS && this.canViewAllAccounts()) || this.accounts().some(account => account.key === key)) this.selectedAccountKey.set(key);
+  }
+  confirmTransfer(key: string) {
+    if (!this.transferCandidates().some(candidate => candidate.key === key)) return;
+    this.transferDecisions.update(value => ({
+      confirmed: [...new Set([...value.confirmed, key])], dismissed: value.dismissed.filter(item => item !== key),
+    }));
+  }
+  dismissTransfer(key: string) {
+    if (!this.transferCandidates().some(candidate => candidate.key === key)) return;
+    this.transferDecisions.update(value => ({
+      confirmed: value.confirmed.filter(item => item !== key), dismissed: [...new Set([...value.dismissed, key])],
+    }));
+    if (!this.canViewAllAccounts()) this.selectedAccountKey.set(null);
+  }
   readonly selectedRange = signal<{ from: Date; to: Date } | null>(null);
   readonly transactions = computed(() => {
     const range = this.selectedRange();
+    const activeAccount = this.activeAccount();
     return this.allTransactions()
-      .filter((t) => !range || (t.date >= range.from && t.date <= range.to))
+      .filter((t) => (!activeAccount || t.accountKey === activeAccount.key) && (!range || (t.date >= range.from && t.date <= range.to)))
       .slice().sort((a, b) => +b.date - +a.date);
   });
 
   /** Set only after a statement has been extracted and reviewed. */
   readonly statementMeta = computed(() => {
-    const rows = this.allTransactions();
+    const activeAccount = this.activeAccount();
+    const rows = this.allTransactions().filter(row => !activeAccount || row.accountKey === activeAccount.key);
     if (!rows.length) return null;
     const latest = rows[0];
     const earliest = rows[rows.length - 1];
-    return { provider: 'Reviewed imports', from: new Date(earliest.date.getFullYear(), earliest.date.getMonth(), earliest.date.getDate()), to: new Date(latest.date.getFullYear(), latest.date.getMonth(), latest.date.getDate()), availableBalance: latest.balance };
+    const balances = this.accounts().map(account => account.availableBalance);
+    const combinedBalance = balances.every((balance): balance is number => balance !== null) ? balances.reduce((total, balance) => total + balance, 0) : null;
+    return { provider: activeAccount?.label ?? 'All accounts', from: new Date(earliest.date.getFullYear(), earliest.date.getMonth(), earliest.date.getDate()), to: new Date(latest.date.getFullYear(), latest.date.getMonth(), latest.date.getDate()), availableBalance: activeAccount?.availableBalance ?? combinedBalance };
   });
   readonly hasData = computed(() => this.allTransactions().length > 0 && this.statementMeta() !== null);
   get statement() {
@@ -95,8 +172,9 @@ export class Finance {
 
   readonly coveredDays = computed(() => {
     const range = this.selectedRange();
+    const activeAccount = this.activeAccount();
     const days = new Set<number>();
-    for (const item of this.store.confirmed()) {
+    for (const item of this.store.confirmed().filter(item => !activeAccount || accountKey(item.draft.account) === activeAccount.key)) {
       const dates = item.draft.rows.map(row => row.date.slice(0, 10)).sort();
       const from = new Date(dates[0] + 'T00:00:00');
       const to = new Date(dates[dates.length - 1] + 'T00:00:00');
@@ -185,7 +263,14 @@ export class Finance {
 
   /** Wallet balance after every transaction, oldest first. */
   readonly balanceSeries = computed(() =>
-    [...this.transactions()].reverse().filter((t): t is Transaction & { balance: number } => t.balance !== null).map((t) => ({ date: t.date, value: t.balance })),
+    this.viewingAllAccounts() ? (() => {
+      const balances = new Map<string, number>();
+      const accountCount = this.accounts().length;
+      return [...this.transactions()].reverse().flatMap(transaction => {
+        if (transaction.balance !== null) balances.set(transaction.accountKey, transaction.balance);
+        return balances.size === accountCount ? [{ date: transaction.date, value: [...balances.values()].reduce((a, b) => a + b, 0) }] : [];
+      });
+    })() : [...this.transactions()].reverse().filter((t): t is Transaction & { balance: number } => t.balance !== null).map((t) => ({ date: t.date, value: t.balance })),
   );
 
   readonly byChannel = computed(() => {
@@ -327,5 +412,6 @@ export class Finance {
   constructor() {
     effect(() => { const value = JSON.stringify(this.budgets()); try { localStorage.setItem(BUDGETS_KEY, value); } catch { /* No persisted budgets when storage is unavailable. */ } });
     effect(() => { const value = JSON.stringify(this.goal()); try { localStorage.setItem(GOAL_KEY, value); } catch { /* No persisted goal when storage is unavailable. */ } });
+    effect(() => { const value = JSON.stringify(this.transferDecisions()); try { localStorage.setItem(TRANSFERS_KEY, value); } catch { /* Decisions remain available for this session. */ } });
   }
 }

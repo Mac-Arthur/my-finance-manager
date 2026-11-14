@@ -35,4 +35,21 @@ describe('Finance without demo data', () => {
     expect(finance.periodDays).toBe(1);
     expect(finance.daily()[0].spent).toBe(10);
   });
+
+  it('keeps account totals separate and switches the active ledger', () => {
+    const wallet = parseCsv('date,name,amount,balance\n2026-11-01,Wallet purchase,-10,90');
+    wallet.account = 'MTN MoMo ••1111';
+    const bank = parseCsv('date,name,amount,balance\n2026-11-02,Bank purchase,-25,975');
+    bank.account = 'Test Bank ••2222';
+    TestBed.inject(Statements).items.set([
+      { id: 'wallet', name: 'wallet.csv', kind: 'csv', size: 1, addedAt: '2026-11-01', status: 'confirmed', file: new Blob(), draft: wallet },
+      { id: 'bank', name: 'bank.csv', kind: 'csv', size: 1, addedAt: '2026-11-02', status: 'confirmed', file: new Blob(), draft: bank },
+    ]);
+    expect(finance.accounts()).toHaveLength(2);
+    expect(finance.activeAccount()?.label).toBe('Test Bank ••2222');
+    expect(finance.moneyOut()).toBe(25);
+    finance.selectAccount('mtn momo ••1111');
+    expect(finance.moneyOut()).toBe(10);
+    expect(finance.statement.availableBalance).toBe(90);
+  });
 });

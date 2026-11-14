@@ -22,6 +22,17 @@
 
     <!-- Actions -->
     <div class="flex shrink-0 items-center gap-1.5">
+      @if (finance.accounts().length > 1) {
+        <label class="account-switcher hidden sm:flex">
+          <span class="sr-only">Active account</span>
+          <select aria-label="Active account" [value]="finance.activeAccount().key"
+            (change)="finance.selectAccount($any($event.target).value)">
+            @for (account of finance.accounts(); track account.key) {
+              <option [value]="account.key">{{ account.label }}</option>
+            }
+          </select>
+        </label>
+      }
       <!-- Theme switch: sun = light, moon = dark -->
       <button
         type="button"
@@ -83,6 +94,17 @@
         </a>
       }
       <div class="my-1 h-px bg-base-content/10"></div>
+      @if (finance.accounts().length > 1) {
+        <label class="px-3 py-2 text-xs font-medium text-base-content/60">Active account
+          <select class="select mt-1 w-full rounded-xl" [value]="finance.activeAccount().key"
+            (change)="finance.selectAccount($any($event.target).value)">
+            @for (account of finance.accounts(); track account.key) {
+              <option [value]="account.key">{{ account.label }}</option>
+            }
+          </select>
+        </label>
+        <div class="my-1 h-px bg-base-content/10"></div>
+      }
       <a routerLink="/settings" routerLinkActive="nav-tab-active" class="nav-tab py-2.5" (click)="mobileOpen.set(false)">
         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" />

@@ -16,6 +16,31 @@
 .profile-link:hover { transform: scale(1.04); }
 .profile-link--active { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-primary-content); }
 
+.account-switcher {
+  align-items: center;
+  max-width: 12rem;
+  height: 2.25rem;
+  border: 1px solid var(--control-edge);
+  border-radius: 999px;
+  background: var(--control-fill);
+  box-shadow: var(--control-shadow);
+  overflow: hidden;
+}
+
+.account-switcher select {
+  min-width: 0;
+  max-width: 12rem;
+  height: 100%;
+  padding: 0 1.8rem 0 .75rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font-size: .72rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .profile-link { transition: none; }
   .profile-link:hover { transform: none; }

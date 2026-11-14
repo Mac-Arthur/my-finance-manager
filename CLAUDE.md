@@ -74,7 +74,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
   Add keywords from real statements and add a test for each.
 - Rows with no narrative (month-end interest) become "Bank credit" or "Bank debit". Don't reject them.
 - Account label: MoMo gives `MTN MoMo ••1234`; banks give `<Bank> ••1234`, with the bank name from the `BANKS` list in `pdf-table.ts`.
-- **Still one account at a time** (`assertCompatible` in `ledger.ts`). Multi-account support plus matching transfers between your own accounts (bank "Acc2Wallet" ↔ MoMo "from <bank>") is the next big feature.
+- **Multiple accounts can coexist.** `Transaction.accountKey` keeps provider IDs and balances scoped to their source account, and `Finance.activeAccount` keeps dashboard totals honest while switching wallets. Combined totals stay disabled until transfers between accounts can be matched safely.
 
 ## UI design system (read before any UI work)
 
@@ -123,7 +123,7 @@ The look follows a reference design: **soft, warm, glassy, rounded, calm**. Ligh
 
 ## Known gaps and roadmap
 
-1. Multiple accounts, with transfers between your own accounts matched (bank → MoMo top-ups shouldn't count as both spending and income). Count "From my bank" as an internal move rather than income.
+1. Match transfers between imported accounts (bank → MoMo top-ups shouldn't count as both spending and income), with confirmation for ambiguous candidates. Only then add an "All accounts" total.
 2. "Teach it once" category rules per counterparty, and editing categories after import (Transactions page).
 3. Readers for Telecel Cash and AT Money, and validation against more real bank layouts (GCB, Ecobank, Fidelity…).
 4. OCR for scanned PDFs, and an optional, consented AI fallback whose output is checked by the running balance.

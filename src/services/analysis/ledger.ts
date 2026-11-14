@@ -8,7 +8,6 @@ const signature = (row: AnalysisRow) => JSON.stringify([row.date, row.amountMino
 
 /** Overlapping imports without stable provider IDs are blocked, never silently deduplicated. */
 export function assertCompatible(draft: AnalysisDraft, imports: ConfirmedImport[]) {
-  if (imports.some(item => accountKey(item.draft.account) !== accountKey(draft.account))) throw new Error('This prototype supports one wallet at a time. Use the same account label as your earlier imports, or remove them before switching wallets.');
   const dates = draft.rows.map(row => row.date.slice(0, 10)).sort();
   for (const previous of imports.filter(item => accountKey(item.draft.account) === accountKey(draft.account))) {
     const oldDates = previous.draft.rows.map(row => row.date.slice(0, 10)).sort();
@@ -36,7 +35,8 @@ export function ledgerTransactions(imports: ConfirmedImport[]): Transaction[] {
       if (entries.has(id)) continue;
       order.set(id, ascending ? row.sourceRow : -row.sourceRow);
       entries.set(id, {
-        id, date: new Date(row.date), type: 'Imported', name: row.name,
+        id, accountKey: accountKey(item.draft.account), account: item.draft.account,
+        date: new Date(row.date), type: 'Imported', name: row.name,
         amount: row.amountMinor / 100, fee: row.feeMinor / 100, balance: row.balanceMinor === null ? null : row.balanceMinor / 100,
         reference: row.reference, category: row.category,
         channel: row.category === 'airtime' ? 'airtime' : row.category === 'cash-out' ? 'cash' : 'momo',
