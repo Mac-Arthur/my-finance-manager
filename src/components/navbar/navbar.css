@@ -1,4 +1,13 @@
+.nav-shell { display: flex; justify-content: space-between; }
+
+@media (min-width: 64rem) {
+  .nav-shell { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .nav-brand { justify-self: start; }
+  .nav-actions { justify-self: end; }
+}
+
 .profile-link {
+  position: relative;
   display: grid;
   width: 2.25rem;
   height: 2.25rem;
@@ -16,46 +25,78 @@
 .profile-link:hover { transform: scale(1.04); }
 .profile-link--active { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-primary-content); }
 
-.account-switcher {
-  align-items: center;
-  max-width: 12rem;
-  height: 2.25rem;
-  border: 1px solid var(--control-edge);
+.account-badge {
+  position: absolute;
+  top: -.3rem;
+  right: -.3rem;
+  display: grid;
+  min-width: 1rem;
+  height: 1rem;
+  padding-inline: .2rem;
+  place-items: center;
+  border: 2px solid var(--color-base-100);
   border-radius: 999px;
-  background: var(--control-fill);
-  box-shadow: var(--control-shadow);
+  background: var(--color-success);
+  color: var(--color-success-content);
+  font-size: .55rem;
+  line-height: 1;
+}
+
+.account-badge--pending { background: var(--color-warning); color: var(--color-warning-content); }
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + .5rem);
+  right: 0;
+  z-index: 60;
+  width: min(22rem, calc(100vw - 1.5rem));
   overflow: hidden;
+  border-radius: var(--radius-box);
+  padding: .35rem;
 }
 
-.account-switcher select {
-  min-width: 0;
-  max-width: 12rem;
-  height: 100%;
-  padding: 0 1.8rem 0 .75rem;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: inherit;
-  font-size: .72rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-}
-
-.transfer-status {
+.account-option,
+.profile-menu__action {
+  display: flex;
+  width: 100%;
   align-items: center;
-  gap: .35rem;
-  height: 2.25rem;
-  padding: 0 .65rem;
-  border: 1px solid var(--control-edge);
-  border-radius: 999px;
-  background: var(--control-fill);
-  box-shadow: var(--control-shadow);
-  font-size: .72rem;
-  font-weight: 700;
+  gap: .65rem;
+  border-radius: .9rem;
+  padding: .65rem .7rem;
+  color: inherit;
+  transition: background-color 160ms ease;
 }
 
-.transfer-status__dot { width: .45rem; height: .45rem; border-radius: 999px; background: var(--color-success); }
-.transfer-status__dot--pending { background: var(--color-warning); }
+.account-option:hover,
+.profile-menu__action:hover { background: color-mix(in oklab, var(--color-base-content) 6%, transparent); }
+.account-option[aria-pressed='true'] { background: color-mix(in oklab, var(--color-primary) 13%, transparent); }
+.account-option:disabled { cursor: not-allowed; opacity: .55; }
+
+.account-option__icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: .7rem;
+  background: color-mix(in oklab, var(--color-primary) 14%, var(--control-fill));
+}
+
+.account-option__check {
+  display: grid;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+.status-dot { width: .5rem; height: .5rem; flex: none; border-radius: 999px; background: var(--color-success); }
+.status-dot--pending { background: var(--color-warning); }
 
 .transfer-backdrop {
   position: fixed;
@@ -85,5 +126,6 @@
 @media (prefers-reduced-motion: reduce) {
   .profile-link { transition: none; }
   .profile-link:hover { transform: none; }
+  .account-option, .profile-menu__action { transition: none; }
   .transfer-card { animation: none; }
 }

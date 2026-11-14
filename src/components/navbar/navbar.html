@@ -1,7 +1,7 @@
 <header class="sticky top-2 z-50">
-  <nav class="glass-surface flex items-center justify-between gap-3 rounded-full py-1.5 pr-1.5 pl-2">
+  <nav class="nav-shell glass-surface items-center gap-3 rounded-full py-1.5 pr-1.5 pl-2">
     <!-- Brand -->
-    <a routerLink="/home" class="flex min-w-0 items-center gap-2 pl-1">
+    <a routerLink="/home" class="nav-brand flex min-w-0 items-center gap-2 pl-1">
       <img src="logo-mark.svg" alt="" class="size-8 shrink-0 rounded-[.65rem]" />
       <span class="truncate text-base font-semibold tracking-tight">
         my<span class="font-normal text-base-content/60">Available</span>
@@ -21,29 +21,7 @@
     </div>
 
     <!-- Actions -->
-    <div class="flex shrink-0 items-center gap-1.5">
-      @if (finance.accounts().length > 1) {
-        <label class="account-switcher hidden sm:flex">
-          <span class="sr-only">Active account</span>
-          <select aria-label="Active account" [value]="finance.accountSelection()"
-            (change)="finance.selectAccount($any($event.target).value)">
-            @if (finance.canViewAllAccounts()) {
-              <option [value]="finance.allAccountsKey">All accounts</option>
-            }
-            @for (account of finance.accounts(); track account.key) {
-              <option [value]="account.key">{{ account.label }}</option>
-            }
-          </select>
-        </label>
-        @if (finance.pendingTransferCandidates().length + finance.matchedTransferCandidates().length) {
-          <button type="button" class="transfer-status hidden sm:flex" (click)="openTransferReview()"
-            [attr.aria-label]="finance.pendingTransferCandidates().length ? 'Review possible transfers' : 'View matched transfers'">
-            <span class="transfer-status__dot" [class.transfer-status__dot--pending]="finance.pendingTransferCandidates().length"></span>
-            <span class="hidden xl:inline">{{ finance.pendingTransferCandidates().length ? 'Review' : 'Matched' }}</span>
-            {{ finance.pendingTransferCandidates().length || finance.matchedTransferCandidates().length }}
-          </button>
-        }
-      }
+    <div class="nav-actions flex shrink-0 items-center gap-1.5">
       <!-- Theme switch: sun = light, moon = dark -->
       <button
         type="button"
@@ -67,7 +45,15 @@
         </span>
       </button>
 
-      <a routerLink="/settings" routerLinkActive="profile-link--active" class="profile-link" aria-label="Profile and settings">{{ setup.initials() }}</a>
+      <button type="button" class="profile-link" [class.profile-link--active]="profileOpen()"
+        [attr.aria-expanded]="profileOpen()" aria-controls="profile-menu" aria-label="Accounts and profile"
+        (click)="$event.stopPropagation(); toggleProfile()">
+        {{ setup.initials() }}
+        @if (finance.accounts().length > 1) {
+          <span class="account-badge" [class.account-badge--pending]="finance.pendingTransferCandidates().length"
+            [attr.aria-label]="finance.accounts().length + ' accounts'">{{ finance.accounts().length }}</span>
+        }
+      </button>
 
       <!-- Hamburger: everything below lg (phones, tablets, Duo/fold devices) -->
       <button
@@ -76,7 +62,7 @@
         [attr.aria-expanded]="mobileOpen()"
         aria-controls="mobile-menu"
         aria-label="Menu"
-        (click)="mobileOpen.set(!mobileOpen())"
+        (click)="profileOpen.set(false); mobileOpen.set(!mobileOpen())"
       >
         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <!-- Morphs into an X when open -->
@@ -87,6 +73,79 @@
       </button>
     </div>
   </nav>
+
+  @if (profileOpen()) {
+    <section id="profile-menu" class="profile-menu glass-surface" aria-label="Accounts and profile menu"
+      (click)="$event.stopPropagation()" animate.enter="menu-enter" animate.leave="menu-leave">
+      <header class="flex items-center gap-3 px-3 py-2.5">
+        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-content">{{ setup.initials() }}</span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-semibold">{{ setup.profile()?.name || 'My profile' }}</p>
+          <p class="truncate text-xs text-base-content/50">{{ finance.viewingAllAccounts() ? 'Viewing all accounts' : finance.activeAccount()?.label || 'No account imported yet' }}</p>
+        </div>
+      </header>
+
+      @if (finance.accounts().length > 1) {
+        <div class="my-1 h-px bg-base-content/10"></div>
+        <div class="px-2 py-2">
+          <div class="flex items-center justify-between px-2 pb-1.5">
+            <p class="text-[11px] font-semibold uppercase tracking-widest text-base-content/45">Accounts</p>
+            <span class="text-[11px] text-base-content/45">{{ finance.accounts().length }} connected</span>
+          </div>
+
+          <button type="button" class="account-option" [attr.aria-pressed]="finance.viewingAllAccounts()"
+            [disabled]="!finance.canViewAllAccounts()" (click)="selectAccount(finance.allAccountsKey)">
+            <span class="account-option__icon">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16v12H4zM7 7V4h10v3M8 12h8M8 16h5" /></svg>
+            </span>
+            <span class="min-w-0 flex-1 text-left">
+              <span class="block truncate text-sm font-medium">All accounts</span>
+              <span class="block truncate text-[11px] text-base-content/45">
+                {{ finance.canViewAllAccounts() ? 'Combined overview' : 'Review possible transfers first' }}
+              </span>
+            </span>
+            @if (finance.viewingAllAccounts()) { <span class="account-option__check">✓</span> }
+          </button>
+
+          @for (account of finance.accounts(); track account.key) {
+            <button type="button" class="account-option" [attr.aria-pressed]="finance.accountSelection() === account.key"
+              (click)="selectAccount(account.key)">
+              <span class="account-option__icon">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 7h18v12H3zM3 10h18M16 15h2" /></svg>
+              </span>
+              <span class="min-w-0 flex-1 text-left">
+                <span class="block truncate text-sm font-medium">{{ account.label }}</span>
+                <span class="block text-[11px] text-base-content/45">{{ account.transactionCount }} transactions</span>
+              </span>
+              @if (account.availableBalance !== null) { <span class="text-xs font-semibold tabular-nums">{{ account.availableBalance | money: 'compact' }}</span> }
+              @if (finance.accountSelection() === account.key) { <span class="account-option__check">✓</span> }
+            </button>
+          }
+        </div>
+
+        @if (finance.pendingTransferCandidates().length + finance.matchedTransferCandidates().length) {
+          <div class="my-1 h-px bg-base-content/10"></div>
+          <button type="button" class="profile-menu__action" (click)="openTransferReview()">
+            <span class="status-dot" [class.status-dot--pending]="finance.pendingTransferCandidates().length"></span>
+            <span class="flex-1 text-left">
+              @if (finance.pendingTransferCandidates().length) {
+                Review {{ finance.pendingTransferCandidates().length }} possible {{ finance.pendingTransferCandidates().length === 1 ? 'transfer' : 'transfers' }}
+              } @else {
+                {{ finance.matchedTransferCandidates().length }} {{ finance.matchedTransferCandidates().length === 1 ? 'transfer' : 'transfers' }} matched
+              }
+            </span>
+            <span aria-hidden="true">›</span>
+          </button>
+        }
+      }
+
+      <div class="my-1 h-px bg-base-content/10"></div>
+      <a routerLink="/settings" class="profile-menu__action" (click)="profileOpen.set(false)">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <span class="flex-1">Your space &amp; settings</span><span aria-hidden="true">›</span>
+      </a>
+    </section>
+  }
 
   <!-- Mobile / tablet menu -->
   @if (mobileOpen()) {
@@ -104,37 +163,6 @@
           {{ tab.label }}
         </a>
       }
-      <div class="my-1 h-px bg-base-content/10"></div>
-      @if (finance.accounts().length > 1) {
-        <label class="px-3 py-2 text-xs font-medium text-base-content/60">Active account
-          <select class="select mt-1 w-full rounded-xl" [value]="finance.accountSelection()"
-            (change)="finance.selectAccount($any($event.target).value)">
-            @if (finance.canViewAllAccounts()) {
-              <option [value]="finance.allAccountsKey">All accounts</option>
-            }
-            @for (account of finance.accounts(); track account.key) {
-              <option [value]="account.key">{{ account.label }}</option>
-            }
-          </select>
-        </label>
-        @if (finance.pendingTransferCandidates().length + finance.matchedTransferCandidates().length) {
-          <button type="button" class="nav-tab py-2.5" (click)="openTransferReview()">
-            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 7h13l-3-3M17 17H4l3 3" /></svg>
-            @if (finance.pendingTransferCandidates().length) {
-              Review {{ finance.pendingTransferCandidates().length }} possible {{ finance.pendingTransferCandidates().length === 1 ? 'transfer' : 'transfers' }}
-            } @else {
-              {{ finance.matchedTransferCandidates().length }} {{ finance.matchedTransferCandidates().length === 1 ? 'transfer' : 'transfers' }} matched
-            }
-          </button>
-        }
-        <div class="my-1 h-px bg-base-content/10"></div>
-      }
-      <a routerLink="/settings" routerLinkActive="nav-tab-active" class="nav-tab py-2.5" (click)="mobileOpen.set(false)">
-        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" />
-        </svg>
-        Your space
-      </a>
     </div>
   }
 
@@ -195,7 +223,7 @@
         }
 
         @if (!finance.pendingTransferCandidates().length) {
-          <p class="mt-6 rounded-xl bg-success/10 p-3 text-sm text-base-content/70" role="status">You can now choose <strong>All accounts</strong> from the account switcher.</p>
+          <p class="mt-6 rounded-xl bg-success/10 p-3 text-sm text-base-content/70" role="status">You can now choose <strong>All accounts</strong> from your account menu.</p>
         }
       </section>
     </div>

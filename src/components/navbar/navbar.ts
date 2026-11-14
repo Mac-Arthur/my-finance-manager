@@ -19,13 +19,14 @@ interface NavTab {
   templateUrl: './navbar.html',
   styleUrl: './navbar.css',
   host: {
-    // Close the mobile menu with Escape.
     '(document:keydown.escape)': 'closeOverlays()',
+    '(document:click)': 'profileOpen.set(false)',
   },
 })
 export class Navbar {
   protected readonly theme = inject(Theme);
   protected readonly mobileOpen = signal(false);
+  protected readonly profileOpen = signal(false);
   protected readonly transferReviewOpen = signal(false);
 
   protected readonly setup = inject(Onboarding);
@@ -33,11 +34,23 @@ export class Navbar {
 
   protected openTransferReview() {
     this.mobileOpen.set(false);
+    this.profileOpen.set(false);
     this.transferReviewOpen.set(true);
+  }
+
+  protected toggleProfile() {
+    this.mobileOpen.set(false);
+    this.profileOpen.update(open => !open);
+  }
+
+  protected selectAccount(key: string) {
+    this.finance.selectAccount(key);
+    this.profileOpen.set(false);
   }
 
   protected closeOverlays() {
     this.mobileOpen.set(false);
+    this.profileOpen.set(false);
     this.transferReviewOpen.set(false);
   }
 
