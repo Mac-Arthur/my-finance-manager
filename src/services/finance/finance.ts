@@ -195,7 +195,7 @@ export class Finance {
     this.transactions().filter((t) => t.amount > 0 && t.category !== 'own-accounts'),
   );
   readonly ownTransfers = computed(() =>
-    this.transactions().filter((t) => t.category === 'own-accounts'),
+    this.transactions().filter((t) => t.amount < 0 && t.category === 'own-accounts'),
   );
 
   // ---------- Headline numbers ----------

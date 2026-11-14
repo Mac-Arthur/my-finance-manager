@@ -52,4 +52,27 @@ describe('Finance without demo data', () => {
     expect(finance.moneyOut()).toBe(10);
     expect(finance.statement.availableBalance).toBe(90);
   });
+
+  it('unlocks combined totals after a possible transfer is confirmed', () => {
+    const wallet = parseCsv('date,name,amount,balance\n2026-11-02,Wallet top up,100,600');
+    wallet.account = 'MTN MoMo ••1111';
+    wallet.rows[0].category = 'received';
+    const bank = parseCsv('date,name,amount,balance\n2026-11-02,Wallet transfer,-100,900');
+    bank.account = 'Test Bank ••2222';
+    bank.rows[0].category = 'transfers';
+    TestBed.inject(Statements).items.set([
+      { id: 'wallet', name: 'wallet.csv', kind: 'csv', size: 1, addedAt: '2026-11-02', status: 'confirmed', file: new Blob(), draft: wallet },
+      { id: 'bank', name: 'bank.csv', kind: 'csv', size: 1, addedAt: '2026-11-02', status: 'confirmed', file: new Blob(), draft: bank },
+    ]);
+    expect(finance.pendingTransferCandidates()).toHaveLength(1);
+    expect(finance.canViewAllAccounts()).toBe(false);
+    finance.confirmTransfer(finance.pendingTransferCandidates()[0].key);
+    expect(finance.canViewAllAccounts()).toBe(true);
+    finance.selectAccount(finance.allAccountsKey);
+    expect(finance.viewingAllAccounts()).toBe(true);
+    expect(finance.moneyIn()).toBe(0);
+    expect(finance.moneyOut()).toBe(0);
+    expect(finance.ownTransfers()).toHaveLength(1);
+    expect(finance.statement.availableBalance).toBe(1500);
+  });
 });

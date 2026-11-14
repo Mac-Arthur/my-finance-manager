@@ -56,7 +56,7 @@
         <span class="feature-soft grid size-9 place-items-center rounded-full">
           <app-icon [path]="icons.wallet" class="size-4" />
         </span>
-        Latest imported balance
+        {{ f.viewingAllAccounts() ? 'Combined imported balances' : 'Latest imported balance' }}
       </div>
       <span class="chip feature-soft px-2.5 py-1">GHS</span>
     </div>
@@ -79,7 +79,10 @@
       </button>
     </div>
 
-    <p class="relative mt-2 text-xs opacity-60">As of {{ f.statement.to | date: 'd MMM y' }} · not a live balance</p>
+    <p class="relative mt-2 text-xs opacity-60">
+      @if (f.viewingAllAccounts()) { Latest known balance from each account · not live }
+      @else { As of {{ f.statement.to | date: 'd MMM y' }} · not a live balance }
+    </p>
     <p class="relative mt-2 inline-flex items-center gap-1.5 feature-soft rounded-full px-2.5 py-1 text-xs">
       Net this period
       <span class="font-semibold" [class]="f.net() >= 0 ? 'text-success' : 'text-error'">
@@ -241,7 +244,7 @@
           </span>
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium">{{ t.name }}</p>
-            <p class="truncate text-xs text-base-content/50">{{ t.cat.label }} · {{ t.date | date: 'd MMM, h:mm a' }}</p>
+            <p class="truncate text-xs text-base-content/50">@if (f.viewingAllAccounts()) { {{ t.account }} · }{{ t.cat.label }} · {{ t.date | date: 'd MMM, h:mm a' }}</p>
           </div>
           <span class="text-sm font-semibold tabular-nums" [class.text-success]="t.amount > 0">
             {{ t.amount | money: 'full' : true }}

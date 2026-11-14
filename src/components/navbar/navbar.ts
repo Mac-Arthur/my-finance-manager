@@ -3,6 +3,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Onboarding } from '../../services/onboarding/onboarding';
 import { Theme } from '../../services/theme/theme';
 import { Finance } from '../../services/finance/finance';
+import { DatePipe } from '@angular/common';
+import { MoneyPipe } from '../../shared/money';
 
 interface NavTab {
   label: string;
@@ -13,20 +15,31 @@ interface NavTab {
 
 @Component({
   selector: 'app-navbar',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, DatePipe, MoneyPipe],
   templateUrl: './navbar.html',
   styleUrl: './navbar.css',
   host: {
     // Close the mobile menu with Escape.
-    '(document:keydown.escape)': 'mobileOpen.set(false)',
+    '(document:keydown.escape)': 'closeOverlays()',
   },
 })
 export class Navbar {
   protected readonly theme = inject(Theme);
   protected readonly mobileOpen = signal(false);
+  protected readonly transferReviewOpen = signal(false);
 
   protected readonly setup = inject(Onboarding);
   protected readonly finance = inject(Finance);
+
+  protected openTransferReview() {
+    this.mobileOpen.set(false);
+    this.transferReviewOpen.set(true);
+  }
+
+  protected closeOverlays() {
+    this.mobileOpen.set(false);
+    this.transferReviewOpen.set(false);
+  }
 
   protected readonly tabs: NavTab[] = [
     { label: 'Statements', path: '/statements', icon: 'M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4' },

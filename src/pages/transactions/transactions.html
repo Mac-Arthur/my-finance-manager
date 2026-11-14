@@ -5,7 +5,7 @@
   <div>
     <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Transactions</h1>
     <p class="mt-1 text-sm text-base-content/60">
-      {{ filtered().length }} of {{ f.transactions().length }} · net {{ totalShown() | money: 'full' : true }}
+      {{ f.viewingAllAccounts() ? 'All accounts · ' : '' }}{{ filtered().length }} of {{ f.transactions().length }} · net {{ totalShown() | money: 'full' : true }}
     </p>
   </div>
 </header>
@@ -61,6 +61,7 @@
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ t.name }}</p>
               <p class="truncate text-xs text-base-content/50">
+                @if (f.viewingAllAccounts()) { {{ t.account }} · }
                 {{ cat(t.category).label }} · {{ t.date | date: 'h:mm a' }}
                 @if (t.reference && t.reference !== '-' && t.reference !== 'Pay') { · “{{ t.reference }}” }
               </p>
