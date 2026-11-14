@@ -1,0 +1,282 @@
+@if (!f.hasData()) {
+  <header class="mt-2 mb-7"><h1 class="text-3xl lg:text-2xl font-semibold">{{ greeting }}{{ setup.profile() ? ", " + setup.profile()!.name : "" }}</h1><p class="mt-2 text-sm text-base-content/60">Your space is ready. Let’s start with your story.</p></header>
+  <app-empty-state title="A fresh start for your finances" description="Add a statement to your library. Your overview will appear after transactions have been extracted and reviewed." />
+} @else {
+
+<!-- Header -->
+<header class="reveal mt-2 mb-5 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ greeting }}, {{ setup.profile()?.name }}</h1>
+    <p class="mt-1 text-sm text-base-content/60">
+      Your money at a glance. Track spending, spot patterns, plan ahead.
+    </p>
+  </div>
+  <a routerLink="/reports" class="btn btn-sm btn-ghost rounded-full border border-base-content/10 bg-base-100 shadow-sm">
+    <app-icon [path]="icons.pie" class="size-4" />
+    Full statement report
+  </a>
+</header>
+
+<section class="period-toolbar glass-surface reveal" aria-label="Dashboard period">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="icon-chip bg-primary/15"><app-icon [path]="icons.calendar" class="size-4" /></span>
+    <div>
+      <p class="text-sm font-semibold">{{ range().from | date: 'MMM y' }} – {{ range().to | date: 'MMM y' }}</p>
+      <p class="text-xs text-base-content/60">Imported dates: {{ f.statement.from | date: 'd MMM' }} – {{ f.statement.to | date: 'd MMM y' }}</p>
+    </div>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <div class="seg" role="group" aria-label="Quick periods">
+      <button type="button" [attr.aria-pressed]="period() === 'this'" (click)="selectPeriod('this')">This month</button>
+      <button type="button" [attr.aria-pressed]="period() === 'last'" (click)="selectPeriod('last')">Last month</button>
+      <button type="button" [attr.aria-pressed]="period() === 'quarter'" (click)="selectPeriod('quarter')">Last 3 months</button>
+      <button type="button" [attr.aria-pressed]="period() === 'year'" (click)="selectPeriod('year')">This year</button>
+    </div>
+    <label class="month-picker text-xs">Go to month
+      <input type="month" aria-label="Go to month" [max]="currentMonth" [value]="month()" (change)="selectMonth($any($event.target).value)" />
+    </label>
+  </div>
+</section>
+@if (!f.transactions().length) {
+  <p class="panel mb-4 text-sm" role="status">No transactions available for this period. Choose another month or add a statement in Statements.</p>
+}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+  <!-- ============ Balance hero ============ -->
+  <section
+    class="feature-card reveal relative overflow-hidden rounded-box p-5 lg:col-span-5 xl:col-span-4"
+    style="--i: 1"
+  >
+    <!-- Soft glow -->
+    <div class="pointer-events-none absolute -top-24 -right-20 size-64 rounded-full bg-primary/25 blur-3xl"></div>
+    <div class="pointer-events-none absolute -bottom-28 -left-16 size-56 rounded-full bg-white/40 blur-3xl dark:bg-primary/10"></div>
+
+    <div class="relative flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm opacity-80">
+        <span class="feature-soft grid size-9 place-items-center rounded-full">
+          <app-icon [path]="icons.wallet" class="size-4" />
+        </span>
+        Latest imported balance
+      </div>
+      <span class="chip feature-soft px-2.5 py-1">GHS</span>
+    </div>
+
+    <div class="relative mt-6 flex items-center gap-3">
+      @if (hideBalance()) {
+        <span class="text-4xl font-semibold tracking-tight">GH₵ ••••••</span>
+      } @else {
+        @if (f.statement.availableBalance !== null) {
+          <span class="text-4xl font-semibold tracking-tight tabular-nums" [countUp]="f.statement.availableBalance!"></span>
+        } @else { <span class="text-2xl font-semibold">Not provided</span> }
+      }
+      <button
+        type="button"
+        class="grid size-8 place-items-center rounded-full opacity-70 transition hover:bg-base-content/10 hover:opacity-100"
+        [attr.aria-label]="hideBalance() ? 'Show balance' : 'Hide balance'"
+        (click)="hideBalance.set(!hideBalance())"
+      >
+        <app-icon [path]="hideBalance() ? icons.eye : icons.eyeOff" class="size-4" />
+      </button>
+    </div>
+
+    <p class="relative mt-2 text-xs opacity-60">As of {{ f.statement.to | date: 'd MMM y' }} · not a live balance</p>
+    <p class="relative mt-2 inline-flex items-center gap-1.5 feature-soft rounded-full px-2.5 py-1 text-xs">
+      Net this period
+      <span class="font-semibold" [class]="f.net() >= 0 ? 'text-success' : 'text-error'">
+        {{ f.net() | money: 'full' : true }}
+      </span>
+    </p>
+
+    <!-- Quick actions -->
+    <div class="relative mt-7">
+      <p class="mb-3 text-xs font-medium tracking-wide uppercase opacity-60">Quick actions</p>
+      <div class="grid grid-cols-4 gap-2">
+        @for (a of [
+          { label: 'Statements', icon: icons.history, link: '/statements' },
+          { label: 'Import', icon: icons.upload, link: '/statements' },
+          { label: 'Budgets', icon: icons.pie, link: '/budgets' },
+          { label: 'Goal', icon: icons.goal, link: '/budgets' },
+        ]; track a.label) {
+          <a [routerLink]="a.link" class="group flex flex-col items-center gap-1.5 text-xs">
+            <span
+              class="feature-soft grid size-12 place-items-center rounded-full transition duration-300 group-hover:-translate-y-0.5 group-hover:bg-primary group-hover:text-primary-content"
+            >
+              <app-icon [path]="a.icon" class="size-5" />
+            </span>
+            <span class="opacity-80">{{ a.label }}</span>
+          </a>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Stat tiles ============ -->
+  <section class="grid grid-cols-2 gap-4 lg:col-span-7 lg:gap-5 xl:col-span-8">
+    <!-- Money in -->
+    <div class="panel panel-hover reveal flex flex-col justify-between gap-4" style="--i: 2">
+      <span class="icon-chip bg-[var(--good)]/12 text-[var(--good)]"><app-icon [path]="icons.arrowIn" class="size-5" /></span>
+      <div>
+        <p class="panel-title">Money in</p>
+        <p class="mt-1 text-xl font-semibold tracking-tight tabular-nums sm:text-2xl" [countUp]="f.moneyIn()" countUpFormat="whole"></p>
+        <p class="mt-1 text-xs text-base-content/50">incl. {{ f.loansIn() | money: 'whole' }} in loans</p>
+      </div>
+    </div>
+
+    <!-- Money out -->
+    <div class="panel panel-hover reveal flex flex-col justify-between gap-4" style="--i: 3">
+      <div class="flex items-start justify-between">
+        <span class="icon-chip bg-[var(--critical)]/12 text-[var(--critical)]"><app-icon [path]="icons.arrowOut" class="size-5" /></span>
+        <span class="chip" [class]="f.spendTrend() > 0 ? 'bg-error/10 text-error' : 'bg-success/10 text-success'">
+          <app-icon [path]="f.spendTrend() > 0 ? icons.trendUp : icons.trendDown" class="size-3" />
+          {{ (f.spendTrend() > 0 ? '+' : '') + (f.spendTrend() * 100 | number: '1.0-0') }}%
+        </span>
+      </div>
+      <div>
+        <p class="panel-title">Money out</p>
+        <p class="mt-1 text-xl font-semibold tracking-tight tabular-nums sm:text-2xl" [countUp]="f.moneyOut()" countUpFormat="whole"></p>
+        <p class="mt-1 text-xs text-base-content/50">2nd half vs 1st half</p>
+      </div>
+    </div>
+
+    <!-- Fees -->
+    <div class="panel panel-hover reveal flex flex-col justify-between gap-4" style="--i: 4">
+      <span class="icon-chip bg-[var(--series-4)]/15 text-[var(--series-4)]"><app-icon [path]="icons.fee" class="size-5" /></span>
+      <div>
+        <p class="panel-title">Fees paid</p>
+        <p class="mt-1 text-xl font-semibold tracking-tight tabular-nums sm:text-2xl" [countUp]="f.allCharges()"></p>
+        <p class="mt-1 text-xs text-base-content/50">≈ {{ f.monthly(f.allCharges()) | money: 'whole' }} / month</p>
+      </div>
+    </div>
+
+    <a routerLink="/transactions" class="panel panel-hover reveal flex flex-col justify-between gap-4" style="--i: 5">
+      <span class="icon-chip bg-primary/15"><app-icon [path]="icons.history" class="size-5" /></span>
+      <div><p class="panel-title">Transactions</p><p class="mt-1 text-2xl font-semibold tabular-nums">{{ f.transactions().length }}</p><p class="mt-1 text-xs text-base-content/60">Reviewed records in this period</p></div>
+    </a>
+  </section>
+
+  <!-- ============ Spending activity ============ -->
+  <section class="panel reveal flex flex-col lg:col-span-7" style="--i: 6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p class="panel-title">Spending activity</p>
+        <p class="mt-1 text-3xl font-semibold tracking-tight tabular-nums" [countUp]="f.moneyOut()" countUpFormat="whole"></p>
+        <p class="text-xs text-base-content/50">{{ f.avgDailySpend() | money: 'whole' }} a day across available data</p>
+      </div>
+      <div class="seg" role="group" aria-label="Activity view">
+        <button type="button" [attr.aria-pressed]="activityView() === 'daily'" (click)="activityView.set('daily')">{{ grouping() }}</button>
+        <button type="button" [attr.aria-pressed]="activityView() === 'time'" (click)="activityView.set('time')">Time of day</button>
+      </div>
+    </div>
+
+    <div class="mt-4 h-56 overflow-x-auto">
+      @if (activityView() === 'daily') {
+        <div class="h-full" [style.min-width.px]="dailyBars().length * 28"><app-spend-bars [data]="dailyBars()" /></div>
+      } @else {
+        <app-spend-bars [data]="timeBars()" />
+      }
+    </div>
+
+    <!-- Cash flow rings -->
+    <div class="mt-5 grid grid-cols-3 gap-2 border-t border-base-content/5 pt-5 text-center">
+      @for (r of [
+        { label: 'Income', value: f.moneyIn(), icon: icons.money, color: 'var(--series-1)' },
+        { label: 'Spending', value: f.moneyOut() + f.fees(), icon: icons.arrowOut, color: 'var(--series-2)' },
+        { label: 'Net', value: f.net(), icon: icons.wallet, color: 'var(--series-3)' },
+      ]; track r.label) {
+        <div class="flex flex-col items-center">
+          <div class="size-16 sm:size-20">
+            <app-ring [value]="Math.abs(r.value) / flowMax()" [icon]="r.icon" [color]="r.color" />
+          </div>
+          <p class="mt-2 text-xs text-base-content/60">{{ r.label }}</p>
+          <p class="text-base font-semibold tabular-nums sm:text-lg">{{ r.value | money: 'whole' }}</p>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ============ Where it went ============ -->
+  <section class="panel reveal lg:col-span-5" style="--i: 7">
+    <div class="flex items-center justify-between">
+      <p class="panel-title">Where your money went</p>
+      <a routerLink="/reports" class="text-xs font-medium text-base-content/60 hover:text-base-content">Details</a>
+    </div>
+
+    <div class="mt-4 px-6 sm:px-10">
+      <app-donut [slices]="slices()" [active]="activeSlice()" />
+    </div>
+
+    <ul class="mt-5 space-y-1" (mouseleave)="activeSlice.set(null)">
+      @for (s of slices(); track s.id) {
+        <li
+          class="flex cursor-default items-center gap-3 rounded-xl px-2 py-1.5 text-sm transition-colors hover:bg-base-content/5"
+          (mouseenter)="activeSlice.set(s.id)"
+        >
+          <span class="size-2.5 shrink-0 rounded-full" [style.background]="s.color"></span>
+          <span class="flex-1 truncate">{{ s.label }}</span>
+          <span class="w-10 text-right text-xs text-base-content/50 tabular-nums">{{ s.share * 100 | number: '1.0-0' }}%</span>
+          <span class="w-24 text-right font-medium tabular-nums">{{ s.value | money: 'whole' }}</span>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <!-- ============ Recent transactions ============ -->
+  <section class="panel recent-card reveal lg:col-span-7" style="--i: 8">
+    <div class="flex items-center justify-between">
+      <div><p class="panel-title flex items-center gap-2"><app-icon [path]="icons.history" class="size-4" />Recent transactions</p><p class="mt-1 text-xs text-base-content/50">Latest five in this period</p></div>
+      <a routerLink="/transactions" class="view-all">View all <app-icon [path]="icons.chevron" class="size-3.5" /></a>
+    </div>
+    <ul class="transaction-list mt-4">
+      @for (t of recent(); track t.id; let i = $index) {
+        <li class="transaction-row flex items-center gap-3" [style.--i]="i + 8">
+          <span
+            class="transaction-icon grid size-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
+            [class]="t.amount > 0 ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/70 dark:bg-base-content/10'"
+          >
+            @if (t.cat.kind === 'out' && t.category !== 'transfers') {
+              <app-icon [path]="t.cat.icon" class="size-4" />
+            } @else {
+              <app-icon [path]="t.amount > 0 ? icons.arrowIn : t.cat.icon" class="size-4" />
+            }
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium">{{ t.name }}</p>
+            <p class="truncate text-xs text-base-content/50">{{ t.cat.label }} · {{ t.date | date: 'd MMM, h:mm a' }}</p>
+          </div>
+          <span class="text-sm font-semibold tabular-nums" [class.text-success]="t.amount > 0">
+            {{ t.amount | money: 'full' : true }}
+          </span>
+        </li>
+      } @empty {
+        <li class="py-12 text-center text-sm text-base-content/60">No transactions in this period.</li>
+      }
+    </ul>
+  </section>
+
+  <!-- ============ Insights ============ -->
+  <section class="panel insights-card reveal lg:col-span-5" style="--i: 10">
+    <div class="flex items-center justify-between"><p class="panel-title flex items-center gap-2"><app-icon [path]="icons.sparkles" class="size-4" />Insights</p><span class="chip bg-primary/10">{{ f.insights().length }} notes</span></div>
+    <ul class="insights-scroll mt-4" tabindex="0" aria-label="Financial insights">
+      @for (n of f.insights(); track n.title) {
+        <li class="tile flex gap-3">
+          <span
+            class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full"
+            [class]="n.tone === 'critical' ? 'bg-error/12 text-error' : n.tone === 'warning' ? 'bg-warning/15 text-warning' : 'bg-info/12 text-info'"
+          >
+            <app-icon [path]="n.tone === 'info' ? icons.info : icons.alert" class="size-3.5" />
+          </span>
+          <div>
+            <p class="text-sm font-medium">{{ n.title }}</p>
+            <p class="mt-0.5 text-xs text-base-content/60">{{ n.body }}</p>
+          </div>
+        </li>
+      }
+      @if (!f.insights().length) { <li class="tile text-sm text-base-content/60">Your insights will appear when this period has transactions.</li> }
+    </ul>
+    <a routerLink="/reports" class="btn btn-sm btn-block mt-4 rounded-full btn-neutral">See savings analyser</a>
+  </section>
+
+
+</div>
+
+}

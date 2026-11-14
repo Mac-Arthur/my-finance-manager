@@ -1,0 +1,153 @@
+:host { display: contents; }
+
+.loader-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center; padding: 1rem;
+  background: color-mix(in srgb, var(--color-base-200) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  animation: fade-in 260ms ease-out both;
+}
+.loader-card {
+  width: min(100%, 26rem); padding: 1.5rem 1.5rem 1.25rem;
+  animation: card-in 520ms cubic-bezier(.2, .9, .3, 1.2) both;
+}
+
+/* ---------- Scene ---------- */
+.scene { position: relative; height: 13rem; margin-inline: auto; max-width: 20rem; }
+.halo {
+  position: absolute; inset: 15% 25%; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 45%, transparent), transparent 70%);
+  filter: blur(18px); animation: breathe 2.8s ease-in-out infinite;
+}
+.orbit {
+  position: absolute; left: 50%; top: 50%; border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--color-base-content) 14%, transparent);
+  animation: spin 9s linear infinite;
+}
+.orbit span {
+  position: absolute; top: -4px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%;
+  background: var(--color-primary); box-shadow: 0 0 12px var(--color-primary);
+}
+.orbit--outer { width: 12.5rem; height: 12.5rem; margin: -6.25rem 0 0 -6.25rem; }
+.orbit--inner { width: 9rem; height: 9rem; margin: -4.5rem 0 0 -4.5rem; animation-duration: 6s; animation-direction: reverse; }
+.orbit--inner span { background: var(--color-accent); box-shadow: 0 0 12px var(--color-accent); }
+
+.doc {
+  position: absolute; left: 50%; top: 50%; width: 6.5rem; height: 8.25rem; margin: -4.125rem 0 0 -3.25rem;
+  padding: .6rem .55rem; border-radius: .7rem; overflow: hidden;
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+  box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35);
+  animation: doc-in 600ms cubic-bezier(.2, .9, .3, 1.2) both, float 3.2s ease-in-out 600ms infinite;
+}
+[data-stage='sorting'] .doc { animation: doc-shrink 700ms ease-in-out forwards; }
+.doc__head { display: flex; gap: .25rem; margin-bottom: .45rem; }
+.doc__head i { height: .4rem; border-radius: 99px; background: var(--color-primary); }
+.doc__head i:first-child { width: 40%; }
+.doc__head i:last-child { width: 20%; opacity: .45; }
+.doc__row { display: flex; gap: .2rem; margin-top: .42rem; }
+.doc__row i {
+  height: .3rem; border-radius: 99px; background: color-mix(in srgb, var(--color-base-content) 14%, transparent);
+  transform-origin: left; animation: row-fill 1.6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 140ms);
+}
+.doc__row .c1 { width: 22%; }
+.doc__row .c2 { width: 46%; }
+.doc__row .c3 { width: 22%; margin-left: auto; }
+/* Extracting: amounts take colours */
+[data-stage='extracting'] .doc__row i { animation: none; }
+[data-stage='extracting'] .doc__row .c3 { background: var(--color-error); animation: pop .4s ease-out both; animation-delay: calc(var(--i) * 110ms); }
+[data-stage='extracting'] .doc__row .c3.in { background: var(--color-success); }
+[data-stage='extracting'] .doc__row .c1 { background: color-mix(in srgb, var(--color-secondary) 55%, transparent); }
+.scan {
+  position: absolute; left: 0; right: 0; top: 0; height: 2.2rem;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--color-primary) 38%, transparent) 85%, var(--color-primary));
+  border-bottom: 1.5px solid var(--color-primary);
+  animation: scan 1.7s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
+/* Category chips */
+.chip-fly {
+  position: absolute; display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap;
+  padding: .3rem .55rem; border-radius: 99px; font-size: .7rem; font-weight: 500;
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / .4);
+  animation: chip-out 620ms cubic-bezier(.2, .9, .3, 1.3) both, bob 2.6s ease-in-out 700ms infinite;
+}
+.chip-fly b { padding: 0 .3rem; border-radius: 99px; font-size: .62rem; background: color-mix(in srgb, var(--color-primary) 35%, transparent); }
+
+.mini { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1.1rem; animation: doc-in 500ms ease-out both; }
+.mini__donut { width: 5.5rem; height: 5.5rem; transform: rotate(-90deg); }
+.mini__donut circle { fill: none; stroke-width: 5.5; }
+.mini__donut .track { stroke: color-mix(in srgb, var(--color-base-content) 10%, transparent); }
+.mini__donut .arc { stroke-linecap: round; stroke-dasharray: 0 100; animation: arc 900ms ease-out forwards; }
+.mini__donut .a1 { stroke: var(--color-secondary); --len: 44; }
+.mini__donut .a2 { stroke: var(--color-warning); --len: 26; stroke-dashoffset: -47; animation-delay: 250ms; }
+.mini__donut .a3 { stroke: var(--color-accent); --len: 18; stroke-dashoffset: -76; animation-delay: 450ms; }
+.mini__bars { display: flex; align-items: flex-end; gap: .3rem; height: 5rem; }
+.mini__bars i {
+  width: .6rem; height: var(--h); border-radius: .3rem .3rem .15rem .15rem;
+  background: linear-gradient(to top, color-mix(in srgb, var(--color-primary) 60%, transparent), var(--color-primary));
+  transform-origin: bottom; animation: grow 700ms cubic-bezier(.2, .9, .3, 1.2) both; animation-delay: calc(var(--i) * 90ms);
+}
+
+.done { position: absolute; left: 50%; top: 50%; width: 5rem; height: 5rem; margin: -2.5rem 0 0 -2.5rem; }
+.done svg { width: 100%; height: 100%; animation: pop .5s cubic-bezier(.2, .9, .3, 1.4) both; }
+.done circle { fill: var(--color-success); }
+.done path { fill: none; stroke: var(--color-success-content); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw 450ms 250ms ease-out forwards; }
+.spark {
+  position: absolute; left: 50%; top: 50%; width: .45rem; height: .45rem; margin: -.225rem; border-radius: 50%;
+  background: var(--color-primary); transform: rotate(var(--a)) translateY(0); opacity: 0;
+  animation: burst 700ms 150ms ease-out forwards;
+}
+
+/* ---------- Text, progress, steps ---------- */
+.shimmer-text {
+  background: linear-gradient(90deg, var(--color-base-content) 35%, var(--color-primary) 50%, var(--color-base-content) 65%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+.verified { display: flex; width: fit-content; align-items: center; gap: .3rem; margin: .4rem auto 0; padding: .1rem .55rem; border-radius: 99px; font-size: .72rem; font-weight: 600; color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); animation: pop .4s .5s ease-out both; }
+.bar {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-primary));
+  background-size: 200% 100%; transition: width 700ms cubic-bezier(.2, .8, .2, 1);
+  animation: shimmer 1.8s linear infinite;
+}
+.step { color: color-mix(in srgb, var(--color-base-content) 45%, transparent); transition: color 300ms; }
+.step__dot {
+  display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-weight: 600;
+  background: color-mix(in srgb, var(--color-base-content) 8%, transparent); transition: background-color 300ms, color 300ms, transform 300ms;
+}
+.step.is-active { color: var(--color-base-content); }
+.step.is-active .step__dot { background: var(--color-primary); color: var(--color-primary-content); animation: ping 1.4s ease-out infinite; }
+.step.is-done { color: var(--color-base-content); }
+.step.is-done .step__dot { background: var(--color-success); color: var(--color-success-content); transform: scale(1.05); }
+
+/* ---------- Keyframes ---------- */
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes card-in { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes breathe { 50% { transform: scale(1.15); opacity: .7; } }
+@keyframes float { 50% { transform: translateY(-6px) rotate(-1.5deg); } }
+@keyframes doc-in { from { opacity: 0; transform: translateY(16px) scale(.85); } }
+@keyframes doc-shrink { to { transform: scale(.72); opacity: .55; } }
+@keyframes row-fill { 0% { transform: scaleX(.15); opacity: .4; } 50% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(.15); opacity: .4; } }
+@keyframes scan { 0% { transform: translateY(-2.2rem); } 100% { transform: translateY(8.25rem); } }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes chip-out { from { opacity: 0; transform: scale(.3); left: 40%; top: 45%; } }
+@keyframes chip-out-r { from { opacity: 0; transform: scale(.3); right: 40%; top: 45%; } }
+.from-right { animation-name: chip-out-r, bob; }
+@media (max-width: 30rem) { .extra { display: none; } }
+@keyframes bob { 50% { transform: translateY(-4px); } }
+@keyframes arc { to { stroke-dasharray: var(--len) 100; } }
+@keyframes grow { from { transform: scaleY(0); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-3.6rem) scale(.4); } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 60%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  .scan, .orbit span { display: none; }
+}

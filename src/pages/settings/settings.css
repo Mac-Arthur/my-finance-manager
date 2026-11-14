@@ -1,0 +1,109 @@
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.profile-hero {
+  position: relative;
+  overflow: hidden;
+  grid-column: 1 / -1;
+  border-radius: var(--radius-box);
+  padding: 1.5rem;
+}
+
+.profile-hero__glow {
+  position: absolute;
+  width: 15rem;
+  height: 15rem;
+  right: -5rem;
+  top: -7rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-primary) 32%, transparent);
+  filter: blur(2rem);
+  pointer-events: none;
+}
+
+.profile-avatar {
+  display: grid;
+  width: 4.25rem;
+  height: 4.25rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--feature-soft-edge);
+  border-radius: 1.35rem;
+  background: var(--feature-soft);
+  box-shadow: var(--control-shadow);
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .55rem;
+}
+
+.profile-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 1px solid var(--feature-soft-edge);
+  border-radius: 1rem;
+  padding: .8rem;
+  background: var(--feature-soft);
+}
+
+.profile-stat__value { font-size: 1.05rem; font-weight: 700; }
+.profile-stat__label { margin-top: .15rem; font-size: .7rem; color: color-mix(in oklab, var(--color-base-content) 52%, transparent); }
+
+.theme-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.theme-option {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .65rem;
+  border: 1px solid var(--control-edge);
+  border-radius: 1rem;
+  padding: .65rem;
+  background: var(--control-fill);
+  text-align: left;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+.theme-option:hover { transform: translateY(-1px); }
+.theme-option[aria-pressed='true'] { border-color: color-mix(in oklab, var(--color-primary) 70%, var(--control-edge)); }
+.theme-option strong, .theme-option small { display: block; }
+.theme-option strong { font-size: .8rem; }
+.theme-option small { margin-top: .1rem; font-size: .65rem; color: color-mix(in oklab, var(--color-base-content) 48%, transparent); }
+
+.theme-preview { display: flex; width: 2.5rem; height: 2.5rem; flex: none; align-items: end; gap: .18rem; border-radius: .7rem; padding: .45rem; }
+.theme-preview i { display: block; flex: 1; border-radius: 99px; background: var(--color-primary); }
+.theme-preview i:nth-child(1) { height: 35%; }
+.theme-preview i:nth-child(2) { height: 58%; }
+.theme-preview i:nth-child(3) { height: 82%; }
+.theme-preview--light { border: 1px solid var(--theme-preview-light-edge); background: var(--theme-preview-light); }
+.theme-preview--dark { border: 1px solid var(--theme-preview-dark-edge); background: var(--theme-preview-dark); }
+
+.theme-check { position: absolute; right: .45rem; top: .4rem; display: grid; width: 1.15rem; height: 1.15rem; place-items: center; border-radius: 99px; background: var(--color-primary); color: var(--color-primary-content); }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent); padding-top: 1rem; }
+.privacy-card { border: 1px solid var(--control-edge); border-radius: 1rem; padding: 1rem; background: var(--control-fill); }
+.status-dot { width: .55rem; height: .55rem; border-radius: 99px; background: var(--color-success); box-shadow: 0 0 0 .25rem color-mix(in oklab, var(--color-success) 13%, transparent); }
+.setting-link { display: flex; align-items: center; gap: .7rem; border-radius: 1rem; padding: .65rem; transition: background-color 180ms ease; }
+.setting-link:hover { background: color-mix(in oklab, var(--color-base-content) 4%, transparent); }
+.setting-link strong, .setting-link small { display: block; }
+.setting-link strong { font-size: .875rem; }
+.setting-link small { margin-top: .15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .7rem; color: color-mix(in oklab, var(--color-base-content) 48%, transparent); }
+.settings-footnote { grid-column: 1 / -1; }
+
+@media (min-width: 48rem) {
+  .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-hero { padding: 2rem; }
+  .profile-stats { max-width: 33rem; }
+  .profile-stat { padding: .9rem 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-option { transition: none; }
+  .theme-option:hover { transform: none; }
+}

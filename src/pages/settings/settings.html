@@ -1,0 +1,108 @@
+<header class="reveal mb-6">
+  <p class="text-xs font-semibold tracking-[.16em] text-base-content/45 uppercase">Your space</p>
+  <h1 class="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Profile & settings</h1>
+  <p class="mt-1 text-sm text-base-content/60">Your preferences, privacy and local data in one place.</p>
+</header>
+
+<div class="settings-grid">
+  <section class="profile-hero feature-card reveal" style="--i: 1">
+    <div class="profile-hero__glow" aria-hidden="true"></div>
+    <div class="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex min-w-0 items-center gap-4">
+        <span class="profile-avatar" aria-hidden="true">{{ setup.initials() }}</span>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold tracking-[.12em] text-base-content/50 uppercase">Local profile</p>
+          <h2 class="mt-1 truncate text-2xl font-semibold">{{ setup.profile()?.name }}</h2>
+          <p class="mt-1 text-sm text-base-content/60">{{ focusLabel() }}</p>
+        </div>
+      </div>
+      <a routerLink="/onboarding" [queryParams]="{ returnTo: 'settings' }" class="btn btn-neutral shrink-0 rounded-full">
+        Edit profile
+        <app-icon [path]="icons.chevron" class="size-4" />
+      </a>
+    </div>
+
+    <div class="profile-stats relative mt-7">
+      <div class="profile-stat">
+        <span class="profile-stat__value">{{ statements.confirmed().length }}</span>
+        <span class="profile-stat__label">Statements</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat__value">{{ finance.allTransactions().length }}</span>
+        <span class="profile-stat__label">Transactions</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat__value">GHS</span>
+        <span class="profile-stat__label">Currency</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel reveal" style="--i: 2">
+    <div class="flex items-center gap-3">
+      <span class="icon-chip bg-primary/15 text-base-content"><app-icon [path]="icons.sparkles" class="size-5" /></span>
+      <div>
+        <h2 class="panel-title">Appearance</h2>
+        <p class="mt-0.5 text-xs text-base-content/50">Choose what feels easiest on your eyes.</p>
+      </div>
+    </div>
+
+    <div class="theme-options mt-5" role="group" aria-label="Colour theme">
+      <button type="button" class="theme-option" [attr.aria-pressed]="!theme.isDark()" (click)="theme.set('finance')">
+        <span class="theme-preview theme-preview--light" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>Light</strong><small>Warm & soft</small></span>
+        @if (!theme.isDark()) { <span class="theme-check"><app-icon [path]="icons.check" class="size-3" /></span> }
+      </button>
+      <button type="button" class="theme-option" [attr.aria-pressed]="theme.isDark()" (click)="theme.set('finance-dark')">
+        <span class="theme-preview theme-preview--dark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span><strong>Dark</strong><small>Black & calm</small></span>
+        @if (theme.isDark()) { <span class="theme-check"><app-icon [path]="icons.check" class="size-3" /></span> }
+      </button>
+    </div>
+
+    <div class="setting-row mt-5">
+      <div>
+        <p class="text-sm font-medium">Currency</p>
+        <p class="mt-0.5 text-xs text-base-content/50">myAvailable currently works in Ghana cedis.</p>
+      </div>
+      <span class="chip border border-base-content/10 px-3 py-1 font-semibold">GHS</span>
+    </div>
+  </section>
+
+  <section class="panel reveal" style="--i: 3">
+    <div class="flex items-center gap-3">
+      <span class="icon-chip bg-success/10 text-success"><app-icon [path]="icons.lock" class="size-5" /></span>
+      <div>
+        <h2 class="panel-title">Privacy & data</h2>
+        <p class="mt-0.5 text-xs text-base-content/50">Your financial history stays under your control.</p>
+      </div>
+    </div>
+
+    <div class="privacy-card mt-5">
+      <div class="flex items-center gap-2 text-sm font-semibold">
+        <span class="status-dot" aria-hidden="true"></span>
+        Stored on this device
+      </div>
+      <p class="mt-2 text-sm leading-relaxed text-base-content/60">Statements and PDF passwords are never sent to a server. Clearing this browser's site data removes your saved copies.</p>
+    </div>
+
+    <a routerLink="/statements" class="setting-link mt-3">
+      <span class="icon-chip size-9 bg-base-content/5"><app-icon [path]="icons.history" class="size-4" /></span>
+      <span class="min-w-0 flex-1"><strong>Manage statements</strong><small>Review, download or remove imported files</small></span>
+      <app-icon [path]="icons.chevron" class="size-4 text-base-content/40" />
+    </a>
+  </section>
+
+  <section class="panel reveal settings-footnote" style="--i: 4">
+    <div class="flex items-start gap-3">
+      <img src="logo-mark.svg" alt="" class="size-11 rounded-[.9rem]" />
+      <div class="min-w-0 flex-1">
+        <h2 class="font-semibold">Your local money companion</h2>
+        <p class="mt-1 text-sm leading-relaxed text-base-content/55">No cloud account, no statement uploads and no AI reading your files. Everything is analysed here in your browser.</p>
+      </div>
+      @if (setup.profile()?.createdAt; as createdAt) {
+        <span class="hidden shrink-0 text-xs text-base-content/40 sm:block">Set up {{ createdAt | date: 'MMM y' }}</span>
+      }
+    </div>
+  </section>
+</div>

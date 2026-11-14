@@ -1,0 +1,12 @@
+:host { display: block; max-width: 1200px; margin: auto; }
+
+.unlock-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 1rem;
+  background: color-mix(in srgb, var(--color-base-200) 72%, transparent);
+  backdrop-filter: blur(14px);
+  animation: unlock-fade 220ms ease-out both;
+}
+.unlock-card { width: min(100%, 24rem); padding: 1.5rem; animation: unlock-in 420ms cubic-bezier(.2, .9, .3, 1.2) both; }
+@keyframes unlock-fade { from { opacity: 0; } }
+@keyframes unlock-in { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .unlock-backdrop, .unlock-card { animation: none; } }

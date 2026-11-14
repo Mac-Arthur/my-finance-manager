@@ -1,0 +1,73 @@
+<div class="loader-backdrop" role="dialog" aria-modal="true" aria-labelledby="import-loader-title">
+  <div class="loader-card glass-surface rounded-box">
+    <div class="scene" [attr.data-stage]="stage()" aria-hidden="true">
+      <div class="halo"></div>
+      <div class="orbit orbit--outer"><span></span></div>
+      <div class="orbit orbit--inner"><span></span></div>
+
+      @if (stage() === 'reading' || stage() === 'extracting' || stage() === 'sorting') {
+        <div class="doc">
+          <div class="doc__head"><i></i><i></i></div>
+          @for (row of rows; track row) {
+            <div class="doc__row" [style.--i]="row"><i class="c1"></i><i class="c2"></i><i class="c3" [class.in]="row % 3 === 1"></i></div>
+          }
+          @if (stage() !== 'sorting') { <div class="scan"></div> }
+        </div>
+      }
+
+      @if (stage() === 'sorting') {
+        @for (chip of chips(); track chip.id) {
+          <div class="chip-fly" [style.left.%]="chip.left" [style.right.%]="chip.right" [class.from-right]="chip.right !== null" [class.extra]="$index > 4" [style.top.%]="chip.top" [style.animation-delay.ms]="chip.delay">
+            <app-icon [path]="chip.icon" class="size-3.5" /><span>{{ chip.label }}</span><b>{{ chip.count }}</b>
+          </div>
+        }
+      }
+
+      @if (stage() === 'building') {
+        <div class="mini">
+          <svg class="mini__donut" viewBox="0 0 42 42"><circle class="track" cx="21" cy="21" r="15.9" /><circle class="arc a1" cx="21" cy="21" r="15.9" /><circle class="arc a2" cx="21" cy="21" r="15.9" /><circle class="arc a3" cx="21" cy="21" r="15.9" /></svg>
+          <div class="mini__bars">@for (h of bars; track $index) { <i [style.--h.%]="h" [style.--i]="$index"></i> }</div>
+        </div>
+      }
+
+      @if (stage() === 'done') {
+        <div class="done">
+          @for (n of [0, 1, 2, 3, 4, 5, 6, 7]; track n) { <i class="spark" [style.--a]="n * 45 + 'deg'"></i> }
+          <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" /><path d="M15 27l7 7 15-15" /></svg>
+        </div>
+      }
+    </div>
+
+    <h2 id="import-loader-title" class="mt-2 text-center text-xl font-semibold tracking-tight">
+      @if (stage() === 'reading' || stage() === 'extracting') { <span class="shimmer-text">{{ title() }}</span> } @else { {{ title() }} }
+    </h2>
+    <p class="detail mt-2 min-h-10 text-center text-sm text-base-content/65" role="status" aria-live="polite">
+      @switch (stage()) {
+        @case ('reading') { {{ store.progress() || 'Opening your file on this device…' }} }
+        @case ('extracting') {
+          @if (summary(); as s) { Found <b class="text-base-content" [countUp]="s.count" countUpFormat="number" [countUpDuration]="1100"></b> transactions<br />{{ s.from | date: 'd MMM' }} – {{ s.to | date: 'd MMM y' }}
+            @if (s.verified) { <span class="verified"><app-icon [path]="icons.check" class="size-3" [stroke]="3" /> Running balance verified</span> }
+          }
+        }
+        @case ('sorting') { @if (summary(); as s) { Spotting bets, airtime, food and your own transfers<br />across {{ s.categories.length }} categories } }
+        @case ('building') {
+          @if (summary(); as s) { Money in <b class="text-success" [countUp]="s.moneyIn" [countUpDuration]="1100"></b> · Money out <b class="text-error" [countUp]="s.moneyOut" [countUpDuration]="1100"></b> }
+        }
+        @case ('done') { Opening your dashboard… }
+      }
+    </p>
+
+    <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-base-content/10" role="progressbar" aria-label="Import progress" [attr.aria-valuenow]="percent()" aria-valuemin="0" aria-valuemax="100">
+      <div class="bar h-full rounded-full" [style.width.%]="percent()"></div>
+    </div>
+    <ol class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
+      @for (step of steps; track step.stage; let i = $index) {
+        <li class="step" [class.is-done]="i < stepIndex()" [class.is-active]="i === stepIndex()">
+          <span class="step__dot">@if (i < stepIndex()) { <app-icon [path]="icons.check" class="size-3" [stroke]="3" /> } @else { {{ i + 1 }} }</span>
+          <span class="mt-1.5 block">{{ step.label }}</span>
+        </li>
+      }
+    </ol>
+    <p class="mt-5 text-center text-[11px] text-base-content/50">Processed on this device. Your statement never leaves your browser.</p>
+  </div>
+</div>

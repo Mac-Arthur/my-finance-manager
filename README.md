@@ -1,59 +1,44 @@
-# MyFinanceManager
+# myAvailable
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.2.
+A personal statement-based money review app built with Angular, Tailwind and daisyUI.
 
-## Development server
+## Run locally
 
-To start a local development server, run:
-
-```bash
-ng serve
+```sh
+npm install
+npm start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Open http://localhost:4200. A new browser profile starts at Welcome → local profile setup → Statements. Returning visitors go to their dashboard. Edit the saved name and focus from Profile.
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
+```sh
+npm run build
+npm test -- --watch=false
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Current milestone: local statement analysis
 
-```bash
-ng generate --help
-```
+- Welcome, local profile setup, and the statement inbox use the existing light/dark glass styling.
+- PDF and CSV statements can be saved, analysed, reviewed and confirmed. Confirmed transactions populate the dashboard, transactions and reports, and survive reloads.
+- Analysis is local extraction plus category rules, simulating an AI-assisted workflow. No AI endpoint or API key is connected, and files stay on this device.
+- Supported PDFs are searchable tables with recognisable column headers. Scans, encrypted PDFs and unsupported layouts fail explicitly. A CSV column template is available in Statements.
+- Review amounts, fees, dates, descriptions and categories before confirming. Only GHS and one wallet at a time are supported in this milestone.
+- Duplicate files and overlapping provider transaction IDs are handled; ambiguous overlaps without IDs are blocked. Removing a source also updates financial totals.
+- Profile setup is not authentication. There is no password, cloud synchronization or online account yet. Keep original files: clearing site data removes local records.
+- See [statement analysis details](docs/statement-analysis.md) for supported formats, limitations and the lightweight backend direction.
 
-## Building
+## Structure
 
-To build the project run:
+- `src/pages/`: routed screens (separate TS, HTML and CSS files).
+- `src/components/`: reusable UI, including `empty-state` and `statement-upload`.
+- `src/services/`: local onboarding, statement storage, finance calculations and theme.
+- `src/environments/environment.ts`: public configuration and file limits. Never store secrets here.
+- `docs/mvp-direction.md`: proposed longer-term product direction.
 
-```bash
-ng build
-```
+## Next milestone
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Validate the user's actual provider layout, add stronger statement coverage and balance reconciliation, and replace the local analysis engine with a lightweight server-side AI adapter when ready. Keep all API credentials on the server, never in Angular environment files.
 
-## Running unit tests
+## Verification
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Run `npm run build` and `npm test -- --watch=false`. The test suite covers onboarding, storage, parsing, review confirmation, ledger totals, overlaps and source removal. Browser visual verification remains outstanding without a connected browser. The owner starts the development server manually.

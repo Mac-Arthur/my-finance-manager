@@ -1,0 +1,25 @@
+<main class="mx-auto min-h-dvh max-w-xl px-5 py-8 text-base-content sm:py-14">
+  <a routerLink="/welcome" class="inline-flex items-center gap-2 text-lg font-semibold"><img src="logo-mark.svg" alt="" class="size-9 rounded-xl" />myAvailable</a>
+  <div class="mt-9 flex items-center gap-3 text-xs text-base-content/60" aria-label="Step 1 of 2: Your space"><span class="grid size-6 place-items-center rounded-full bg-primary text-primary-content">1</span>Your space<span class="h-px flex-1 bg-base-content/10"></span><span class="grid size-6 place-items-center rounded-full bg-base-content/10">2</span>Your statements</div>
+  <section class="glass-surface reveal mt-6 rounded-box p-6 sm:p-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Let's make this yours.</h1>
+    <p class="mt-2 text-sm leading-relaxed text-base-content/60">A small start to a clearer picture of your money.</p>
+    <form class="mt-7" (ngSubmit)="submit()">
+      <label for="name" class="text-sm font-medium">What should we call you?</label>
+      <input id="name" name="name" class="input mt-2 w-full rounded-xl" placeholder="Your first name" autocomplete="given-name" required maxlength="60" [(ngModel)]="name" [disabled]="busy()" />
+      <fieldset class="mt-6" [disabled]="busy()">
+        <legend class="mb-3 text-sm font-medium">What brings you here?</legend>
+        @for (choice of choices; track choice.value) {
+          <label class="focus-option" [class.selected]="focus === choice.value">
+            <span class="icon-chip bg-base-content/5"><app-icon [path]="choice.icon" class="size-5" /></span>
+            <span class="flex-1"><span class="block text-sm font-medium">{{ choice.title }}</span><span class="mt-0.5 block text-xs text-base-content/60">{{ choice.detail }}</span></span>
+            <input class="radio radio-sm radio-primary" type="radio" name="focus" [value]="choice.value" [(ngModel)]="focus" />
+          </label>
+        }
+      </fieldset>
+      <p class="mt-5 text-xs leading-relaxed text-base-content/60">We'll start with Ghana cedis (GHS) and a three-month view. Your profile and files stay in this browser; clearing site data removes them. This is local setup, not an online account.</p>
+      @if (error()) { <p class="mt-4 text-sm text-error" role="alert">{{ error() }}</p> }
+      <button class="btn btn-primary mt-6 w-full rounded-full" type="submit" [disabled]="busy() || !name.trim()">@if (busy()) { <span class="loading loading-spinner loading-xs" aria-hidden="true"></span> Setting up your space… } @else { Continue to statements <app-icon [path]="icons.chevron" class="size-4" /> }</button>
+    </form>
+  </section>
+</main>

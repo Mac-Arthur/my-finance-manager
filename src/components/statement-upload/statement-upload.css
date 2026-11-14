@@ -1,0 +1,17 @@
+:host { display: block; }
+.dropzone {
+  padding: 2rem 1rem;
+  text-align: center;
+  border: 1.5px dashed color-mix(in srgb, var(--color-base-content) 22%, transparent);
+  border-radius: 1.25rem;
+  background: linear-gradient(155deg, var(--control-fill), transparent);
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+.dropzone:focus-within, .dropzone.dragging {
+  border-color: var(--focus-color);
+  background-color: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+@media (hover: hover) {
+  .dropzone:hover { border-color: color-mix(in srgb, var(--color-base-content) 38%, transparent); }
+}
+@media(prefers-reduced-motion: reduce) { .dropzone { transition: none; } }

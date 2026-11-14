@@ -1,0 +1,181 @@
+.filter-trigger {
+  display: inline-flex;
+  height: 3rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  border: 1px solid var(--control-edge);
+  border-radius: 999px;
+  padding: 0 .9rem;
+  background: var(--control-fill);
+  box-shadow: var(--control-shadow);
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  font-size: .875rem;
+  font-weight: 600;
+  transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.filter-trigger:hover {
+  color: var(--color-base-content);
+  transform: translateY(-1px);
+}
+
+.filter-trigger--active {
+  border-color: color-mix(in oklab, var(--color-primary) 55%, var(--control-edge));
+  background: color-mix(in oklab, var(--color-primary) 15%, var(--control-fill));
+  color: var(--color-base-content);
+}
+
+.filter-count {
+  display: grid;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  place-items: center;
+  border-radius: 999px;
+  padding-inline: .25rem;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-size: .6875rem;
+  font-weight: 800;
+}
+
+.active-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border-radius: 999px;
+  padding: .35rem .65rem;
+  background: color-mix(in oklab, var(--color-primary) 18%, var(--control-fill));
+  color: var(--color-base-content);
+  font-size: .75rem;
+  font-weight: 600;
+  transition: background-color 180ms ease;
+}
+
+.active-filter:hover {
+  background: color-mix(in oklab, var(--color-primary) 28%, var(--control-fill));
+}
+
+.filter-backdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in oklab, var(--color-base-200) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: backdrop-in 180ms ease-out both;
+}
+
+.filter-sheet {
+  width: min(100%, 34rem);
+  max-height: min(88dvh, 48rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--glass-edge);
+  border-radius: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(145deg, var(--glass-sheen), transparent 55%), var(--glass-fill);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  animation: filter-sheet-in 320ms cubic-bezier(.2,.9,.3,1.2) both;
+}
+
+.filter-sheet__handle {
+  width: 2.5rem;
+  height: .25rem;
+  margin: -.35rem auto .8rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-base-content) 16%, transparent);
+}
+
+.filter-label {
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-base-content) 48%, transparent);
+}
+
+.category-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .45rem;
+}
+
+.category-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .7rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  padding: .55rem .65rem;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.category-option:hover {
+  background: color-mix(in oklab, var(--color-base-content) 4%, transparent);
+}
+
+.category-option[aria-pressed='true'] {
+  border-color: color-mix(in oklab, var(--color-primary) 48%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+}
+
+.category-option__check {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+}
+
+@media (min-width: 40rem) {
+  .filter-backdrop {
+    align-items: center;
+  }
+
+  .filter-sheet {
+    padding: 1.5rem;
+  }
+
+  .filter-sheet__handle {
+    display: none;
+  }
+
+  .category-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+}
+
+@keyframes filter-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-backdrop,
+  .filter-sheet {
+    animation: none;
+  }
+
+  .filter-trigger,
+  .category-option {
+    transition: none;
+  }
+}

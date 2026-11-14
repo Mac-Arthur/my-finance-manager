@@ -1,0 +1,4 @@
+.focus-option { display: flex; align-items: center; gap: .8rem; padding: 1rem; margin-bottom: .6rem; border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent); border-radius: 1rem; cursor: pointer; transition: background 180ms ease, border-color 180ms ease; }
+.focus-option:hover { background: color-mix(in srgb, var(--color-base-content) 3%, transparent); }
+.focus-option.selected { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+@media(prefers-reduced-motion: reduce) { .focus-option { transition: none; } }

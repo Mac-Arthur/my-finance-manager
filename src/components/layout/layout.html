@@ -1,0 +1,9 @@
+<div class="mx-auto min-h-screen max-w-full px-3 pt-2 text-base-content lg:px-6">
+  <app-navbar />
+
+  <main class="py-6 mt-4 px-4">
+    @if (statements.loading()) { <p class="p-6 text-sm text-base-content/60" role="status"><span class="loading loading-spinner loading-sm mr-2"></span>Opening your financial history…</p> }
+    @if (statements.error()) { <p class="mb-4 rounded-xl bg-error/10 p-3 text-sm" role="alert">{{ statements.error() }}</p> }
+    <router-outlet />
+  </main>
+</div>

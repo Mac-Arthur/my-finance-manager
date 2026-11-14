@@ -1,0 +1,110 @@
+@if (!f.hasData()) {
+  <app-empty-state title="Build a plan around your real spending" description="Add a statement to your library. Your overview will appear after transactions have been extracted and reviewed." />
+} @else {
+<header class="reveal mb-6">
+  <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Budgets &amp; savings</h1>
+  <p class="mt-1 text-sm text-base-content/60">Limits per category for this statement period. Changes save automatically.</p>
+</header>
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+  <!-- Overview -->
+  <section class="panel reveal lg:col-span-8" style="--i: 1">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="panel-title">Budgeted spending</p>
+        <p class="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
+          <span [countUp]="totals().spent" countUpFormat="whole"></span>
+          <span class="text-base font-normal text-base-content/50"> of {{ totals().limit | money: 'whole' }}</span>
+        </p>
+      </div>
+      @if (totals().over > 0) {
+        <span class="chip bg-error/10 text-error"><app-icon [path]="icons.alert" class="size-3" /> {{ totals().over }} over budget</span>
+      } @else {
+        <span class="chip bg-success/10 text-success"><app-icon [path]="icons.check" class="size-3" /> All on track</span>
+      }
+    </div>
+
+    <ul class="mt-6 divide-y divide-base-content/5">
+      @for (b of f.budgetProgress(); track b.category; let i = $index) {
+        <li class="reveal flex flex-wrap items-center gap-x-4 gap-y-2 py-3.5" [style.--i]="i + 2">
+          <span class="icon-chip bg-base-200 text-base-content/70 dark:bg-base-content/10"><app-icon [path]="b.icon" class="size-4" /></span>
+          <div class="min-w-40 flex-1">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-medium">{{ b.label }}</span>
+              <span class="tabular-nums" [class]="b.status === 'over' ? 'text-error' : 'text-base-content/60'">
+                {{ b.left >= 0 ? (b.left | money: 'whole') + ' left' : (-b.left | money: 'whole') + ' over' }}
+              </span>
+            </div>
+            <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-base-content/5">
+              <div class="grow-x h-full rounded-full transition-[width] duration-500" [style.--i]="i"
+                [style.width.%]="b.ratio > 1 ? 100 : b.ratio * 100"
+                [style.background]="b.status === 'over' ? 'var(--critical)' : b.status === 'near' ? 'var(--warning)' : 'var(--good)'"></div>
+            </div>
+            <p class="mt-1 text-xs text-base-content/50">{{ b.spent | money: 'whole' }} spent</p>
+          </div>
+          <label class="input input-sm w-32 rounded-full">
+            <span class="text-xs text-base-content/50">GH₵</span>
+            <input type="number" min="0" step="10" [value]="b.limit" (change)="updateLimit(b.category, $any($event.target).value)" aria-label="Limit for {{ b.label }}" />
+          </label>
+          <button type="button" class="btn btn-ghost btn-sm btn-circle text-base-content/50 hover:text-error" (click)="f.removeBudget(b.category)" [attr.aria-label]="'Remove ' + b.label">✕</button>
+        </li>
+      }
+    </ul>
+
+    @if (f.unbudgetedCategories().length) {
+      @if (adding()) {
+        <div class="fade-in mt-3 flex flex-wrap gap-2">
+          @for (c of f.unbudgetedCategories(); track c.id) {
+            <button type="button" class="btn btn-sm rounded-full" (click)="addBudget(c.id)">
+              <app-icon [path]="c.icon" class="size-4" /> {{ c.label }}
+            </button>
+          }
+          <button type="button" class="btn btn-sm btn-ghost rounded-full" (click)="adding.set(false)">Cancel</button>
+        </div>
+      } @else {
+        <button type="button" class="btn btn-sm mt-3 rounded-full btn-neutral" (click)="adding.set(true)">
+          <app-icon [path]="icons.plus" class="size-4" /> Add a budget
+        </button>
+      }
+    }
+  </section>
+
+  <!-- Savings goal -->
+  <section class="panel reveal relative overflow-hidden lg:col-span-4" style="--i: 2">
+    <div class="pointer-events-none absolute -top-16 -right-16 size-48 rounded-full bg-[var(--series-1)]/15 blur-3xl"></div>
+    <div class="relative">
+      <p class="panel-title">Savings goal</p>
+
+      <div class="mx-auto mt-5 size-40">
+        <app-ring [value]="goalRatio()" [icon]="icons.goal" color="var(--series-1)" />
+      </div>
+      <p class="mt-3 text-center text-2xl font-semibold tabular-nums" [countUp]="f.goal().saved" countUpFormat="whole"></p>
+      <p class="text-center text-sm text-base-content/60">of {{ f.goal().target | money: 'whole' }} · {{ goalRatio() * 100 | number: '1.0-0' }}%</p>
+
+      <div class="mt-5 grid grid-cols-3 gap-2">
+        @for (amt of [50, 100, 200]; track amt) {
+          <button type="button" class="btn btn-sm rounded-full" (click)="deposit(amt)">+{{ amt }}</button>
+        }
+      </div>
+
+      <div class="mt-5 space-y-3">
+        <label class="block">
+          <span class="text-xs text-base-content/60">Goal name</span>
+          <input class="input input-sm mt-1 w-full rounded-full" [value]="f.goal().name" (change)="updateGoal({ name: $any($event.target).value })" />
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="text-xs text-base-content/60">Target</span>
+            <input type="number" min="0" class="input input-sm mt-1 w-full rounded-full" [value]="f.goal().target" (change)="updateGoal({ target: +$any($event.target).value })" />
+          </label>
+          <label class="block">
+            <span class="text-xs text-base-content/60">Saved</span>
+            <input type="number" min="0" class="input input-sm mt-1 w-full rounded-full" [value]="f.goal().saved" (change)="updateGoal({ saved: +$any($event.target).value })" />
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+}

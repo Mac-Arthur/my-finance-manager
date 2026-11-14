@@ -1,0 +1,22 @@
+.profile-link {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--control-edge);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-primary) 18%, var(--control-fill));
+  box-shadow: var(--control-shadow);
+  font-size: .7rem;
+  font-weight: 700;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.profile-link:hover { transform: scale(1.04); }
+.profile-link--active { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-primary-content); }
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-link { transition: none; }
+  .profile-link:hover { transform: none; }
+}

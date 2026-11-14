@@ -2,12 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>MyFinanceManager</title>
+  <title>myAvailable</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    .startup { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; font: 14px system-ui; }
+    .startup-mark { width: 48px; height: 48px; }
+    .startup-line { width: 80px; height: 3px; border-radius: 8px; background: #f5c84c; animation: startup-pulse 1s ease-in-out infinite alternate; }
+    @keyframes startup-pulse { to { opacity: .25; transform: scaleX(.5); } }
+    @media(prefers-reduced-motion: reduce) { .startup-line { animation: none; } }
+  </style>
+  <!-- Apply the saved theme before Angular boots, so there's no light flash on reload. -->
+  <script>
+    (function () {
+      var t;
+      try { t = localStorage.getItem('theme'); } catch {}
+      if (t !== 'finance' && t !== 'finance-dark') {
+        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'finance-dark' : 'finance';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body>
-  <app-root></app-root>
+  <app-root><div class="startup" role="status"><img class="startup-mark" src="logo-mark.svg" alt=""><p>Opening myAvailable…</p><span class="startup-line"></span></div></app-root>
 </body>
 </html>

@@ -1,0 +1,67 @@
+<header class="reveal mt-2 mb-7 flex flex-wrap items-center justify-between gap-4">
+  <div><p class="mb-2 text-xs font-medium uppercase tracking-widest text-base-content/60">Your money, in one place</p><h1 class="text-2xl font-semibold tracking-tight">Statements</h1><p class="mt-2 text-sm text-base-content/60">Start with the last three months. Add more whenever you're ready.</p></div>
+  <a routerLink="/home" class="btn btn-ghost btn-sm rounded-full border border-base-content/10">Go to dashboard <app-icon [path]="icons.chevron" class="size-4" /></a>
+</header>
+<div class="grid items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
+  <app-statement-upload (imported)="imported($event)" />
+  @if (store.importing()) { <app-import-loader /> }
+  @if (store.passwordRequest(); as request) {
+    <div class="unlock-backdrop" role="dialog" aria-modal="true" aria-labelledby="unlock-title">
+      <form class="unlock-card glass-surface rounded-box" (submit)="unlock($event)">
+        <span class="icon-chip bg-primary/20"><app-icon [path]="icons.lock" class="size-5" /></span>
+        <h2 id="unlock-title" class="mt-4 text-lg font-semibold">This statement is locked</h2>
+        <p class="mt-1 truncate text-sm text-base-content/65">{{ request.name }}</p>
+        <label class="mt-5 block text-sm font-medium" for="statement-password">PDF password</label>
+        <div class="relative mt-2">
+          <input id="statement-password" class="input w-full rounded-xl pr-11" [class.input-error]="request.incorrect" [type]="showPassword() ? 'text' : 'password'" autocomplete="off" autofocus [value]="password()" (input)="password.set($any($event.target).value)" [attr.aria-invalid]="request.incorrect" aria-describedby="unlock-help" />
+          <button type="button" class="absolute inset-y-0 right-0 grid w-11 place-items-center text-base-content/60" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"><app-icon [path]="showPassword() ? icons.eyeOff : icons.eye" class="size-4" /></button>
+        </div>
+        @if (request.incorrect) { <p class="mt-2 text-sm text-error" role="alert">That password didn't open the PDF. Check it and try again.</p> }
+        <p id="unlock-help" class="mt-3 text-xs leading-relaxed text-base-content/65">Banks often use your date of birth, account number or phone number. The email that came with the statement usually says which.</p>
+        <p class="mt-2 text-xs leading-relaxed text-base-content/65">Your password is used once on this device and never saved. The stored copy stays locked.</p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button type="button" class="btn btn-ghost btn-sm rounded-full" (click)="cancelUnlock()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm rounded-full px-5" [disabled]="!password()">Unlock &amp; import</button>
+        </div>
+      </form>
+    </div>
+  }
+  <aside class="glass-surface rounded-box p-6">
+    <span class="icon-chip bg-primary/15"><app-icon [path]="icons.sparkles" class="size-5" /></span>
+    <h2 class="mt-4 font-semibold">A home for your history</h2>
+    <ol class="mt-5 space-y-5 text-sm"><li><p class="font-medium">01 · Add your statements</p><p class="mt-1 text-base-content/60">Import a PDF or CSV from your wallet, one file at a time.</p></li><li><p class="font-medium">02 · We sort the transactions</p><p class="mt-1 text-base-content/60">Each one gets a suggested category, and your own transfers are spotted.</p></li><li><p class="font-medium">03 · See the bigger picture</p><p class="mt-1 text-base-content/60">Your dashboard will fill with your confirmed transactions.</p></li></ol>
+    <p class="mt-6 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed">Local analysis reads supported PDF tables and CSV files on this device. It simulates the analysis workflow using rules; no AI service receives your files. Scanned or unsupported PDFs need a CSV export.</p>
+  <a href="templates/statement.csv" download class="mt-4 inline-block text-xs font-medium underline underline-offset-4">Download the CSV column template</a>
+  </aside>
+</div>
+@if (store.error()) { <div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-error/10 p-4 text-sm" role="alert"><span class="flex-1">{{ store.error() }}</span><button type="button" class="btn btn-sm btn-ghost" (click)="store.load()" [disabled]="store.busy() || store.loading()">Reload files</button></div> }
+@if (store.analysingId() && !store.importing()) { <div class="glass-surface mt-5 rounded-box p-5" role="status" aria-live="polite"><span class="loading loading-spinner loading-sm mr-2" aria-hidden="true"></span>{{ store.progress() }}</div> }
+@if (review(); as item) {
+  @if (item.draft; as draft) { <app-statement-review [draft]="draft" [busy]="store.busy()" (close)="reviewId.set(null)" (confirm)="confirm($event)" /> }
+}
+<section class="mt-8" aria-labelledby="library-title">
+  <div class="mb-4 flex items-center gap-3"><h2 id="library-title" class="font-semibold">Your statement library</h2><span class="chip bg-base-content/5">{{ store.items().length }} {{ store.items().length === 1 ? 'file' : 'files' }}</span></div>
+  @if (store.loading()) {
+    <div class="glass-surface rounded-box p-8 text-sm text-base-content/60" role="status"><span class="loading loading-spinner loading-sm mr-2" aria-hidden="true"></span>Opening your statement library…</div>
+  } @else {
+    <ul class="space-y-3">
+      @for (item of store.items(); track item.id) {
+        <li class="glass-surface flex flex-wrap items-center gap-4 rounded-2xl p-4">
+          <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-xs font-semibold uppercase">{{ item.kind }}</span>
+          <div class="min-w-0 flex-1"><p class="truncate text-sm font-medium">{{ item.name }}</p><p class="mt-1 text-xs text-base-content/65">Added {{ item.addedAt | date: 'd MMM y, h:mm a' }} · {{ (item.size / 1024).toFixed(1) }} KB</p></div>
+          <span class="chip bg-warning/10 text-base-content/75">{{ item.status === 'confirmed' ? 'Imported' : item.status === 'ready' ? 'Ready for review' : item.status === 'error' ? 'Needs attention' : 'Awaiting analysis' }}</span>
+          <div class="flex flex-wrap gap-1">
+            @if (item.status === 'ready') { <button type="button" class="btn btn-primary btn-sm rounded-full" [disabled]="store.busy()" (click)="reviewId.set(item.id)">Review results</button> }
+            @else if (item.status !== 'confirmed') { <button type="button" class="btn btn-primary btn-sm rounded-full" [disabled]="store.busy()" (click)="analyse(item.id)">{{ store.analysingId() === item.id ? 'Analysing…' : item.status === 'error' ? 'Try analysis again' : 'Analyse statement' }}</button> }
+            @else { <a routerLink="/home" class="btn btn-sm btn-ghost rounded-full">View dashboard</a> }
+            <button class="btn btn-ghost btn-sm rounded-full" type="button" (click)="store.download(item)" [attr.aria-label]="'Download ' + item.name">Download</button>
+            @if (removing() === item.id) {
+              <button type="button" class="btn btn-error btn-sm rounded-full" [disabled]="store.busy()" (click)="remove(item.id)" [attr.aria-label]="'Confirm removal of ' + item.name">{{ item.status === 'confirmed' ? 'Remove file & records' : 'Confirm removal' }}</button><button type="button" class="btn btn-ghost btn-sm" (click)="removing.set(null)">Cancel</button>
+            } @else { <button type="button" class="btn btn-ghost btn-sm rounded-full text-error" [disabled]="store.busy()" (click)="removing.set(item.id)" [attr.aria-label]="'Remove ' + item.name">Remove</button> }
+          </div>
+          @if (item.analysisError) { <p class="w-full text-xs text-error">{{ item.analysisError }}</p> }
+        </li>
+      } @empty { <li class="rounded-box border border-dashed border-base-content/15 p-8 text-center text-sm text-base-content/65">Your statements will live here. Add your first file above.</li> }
+    </ul>
+  }
+</section>

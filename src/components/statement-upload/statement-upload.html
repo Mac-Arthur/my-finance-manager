@@ -1,0 +1,21 @@
+<section class="glass-surface rounded-box p-5 sm:p-7" [attr.aria-busy]="statements.busy()">
+  <div class="dropzone" [class.dragging]="dragging()" (dragover)="$event.preventDefault(); dragging.set(true)" (dragleave)="dragging.set(false)" (drop)="drop($event)">
+    <span class="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/15"><app-icon [path]="icons.upload" class="size-6" /></span>
+    <h2 class="mt-4 text-lg font-semibold">Bring your first chapter.</h2>
+    <p class="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-base-content/60">Drop a statement here, or choose a file. Three months is a great start. A full year shows the bigger picture.</p>
+    <input #picker type="file" class="sr-only" tabindex="-1" accept=".pdf,.csv,application/pdf,text/csv" aria-label="Choose a statement" [disabled]="statements.busy()" (change)="choose(picker.files); picker.value = ''" />
+    <button type="button" class="btn btn-neutral mt-5 rounded-full px-6" (click)="picker.click()" [disabled]="statements.busy()">Choose a file</button>
+    <p class="mt-3 text-xs text-base-content/60">PDF or CSV · Up to 25 MB · Password-protected PDFs welcome</p>
+  </div>
+  @if (selected(); as file) {
+    <div class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-base-content/5 p-4">
+      <app-icon [path]="icons.history" class="size-5 shrink-0" />
+      <div class="min-w-0 flex-1"><p class="truncate text-sm font-medium">{{ file.name }}</p><p class="text-xs text-base-content/60">{{ (file.size / 1024).toFixed(1) }} KB · Ready to import</p></div>
+      <button class="btn btn-primary btn-sm rounded-full" type="button" [disabled]="statements.busy() || statements.importing()" (click)="save()">@if (statements.busy() || statements.importing()) { <span class="loading loading-spinner loading-xs" aria-hidden="true"></span> Importing… } @else { Import statement }</button>
+      <button class="btn btn-ghost btn-sm rounded-full" type="button" [disabled]="statements.busy() || statements.importing()" (click)="selected.set(null)">Cancel</button>
+    </div>
+  }
+  @if (statements.progress() && !statements.importing()) { <p class="mt-3 text-sm text-base-content/60" role="status">{{ statements.progress() }}</p> }
+  @if (message()) { <p class="mt-3 text-sm text-success" role="status">{{ message() }}</p> }
+  <p class="mt-4 text-xs leading-relaxed text-base-content/65">Files are saved only in this browser. Keep your originals: clearing site data removes these copies. No statement is sent to an AI service.</p>
+</section>

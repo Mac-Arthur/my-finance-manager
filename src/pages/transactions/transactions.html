@@ -1,0 +1,150 @@
+@if (!f.hasData()) {
+  <app-empty-state title="Your transaction history starts here" description="Add a statement to your library. Your overview will appear after transactions have been extracted and reviewed." />
+} @else {
+<header class="reveal mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Transactions</h1>
+    <p class="mt-1 text-sm text-base-content/60">
+      {{ filtered().length }} of {{ f.transactions().length }} · net {{ totalShown() | money: 'full' : true }}
+    </p>
+  </div>
+</header>
+
+<section class="panel reveal" style="--i: 1">
+  <div class="flex items-center gap-2">
+    <label class="input min-w-0 flex-1 rounded-full">
+      <app-icon [path]="icons.search" class="size-4 opacity-50" />
+      <input type="search" placeholder="Search transactions" aria-label="Search transactions" [value]="query()" (input)="query.set($any($event.target).value)" />
+    </label>
+    <button type="button" class="filter-trigger" [class.filter-trigger--active]="activeFilterCount() > 0"
+      [attr.aria-expanded]="filterOpen()" aria-controls="transaction-filters" (click)="openFilters()">
+      <app-icon [path]="icons.filter" class="size-4" />
+      <span class="hidden sm:inline">Filters</span>
+      @if (activeFilterCount() > 0) {
+        <span class="filter-count" aria-label="{{ activeFilterCount() }} active filters">{{ activeFilterCount() }}</span>
+      }
+    </button>
+  </div>
+
+  @if (activeFilterCount() > 0) {
+    <div class="mt-3 flex flex-wrap items-center gap-2" aria-label="Active filters">
+      @if (direction() !== 'all') {
+        <button type="button" class="active-filter" (click)="direction.set('all')">
+          {{ direction() === 'in' ? 'Money in' : 'Money out' }}
+          <app-icon [path]="icons.close" class="size-3" />
+        </button>
+      }
+      @if (category(); as categoryId) {
+        <button type="button" class="active-filter" (click)="category.set(null)">
+          <app-icon [path]="cat(categoryId).icon" class="size-3.5" />
+          {{ cat(categoryId).label }}
+          <app-icon [path]="icons.close" class="size-3" />
+        </button>
+      }
+      <button type="button" class="ml-1 text-xs font-medium text-base-content/50 hover:text-base-content"
+        (click)="direction.set('all'); category.set(null)">Clear all</button>
+    </div>
+  }
+
+  @for (g of groups(); track g.date.toDateString(); let gi = $index) {
+    <div class="reveal mt-5" [style.--i]="gi < 8 ? gi : 8">
+      <div class="mb-1 flex items-center justify-between text-xs font-medium text-base-content/50">
+        <span>{{ g.date | date: 'EEEE, d MMMM' }}</span>
+        <span class="tabular-nums">{{ g.net | money: 'full' : true }}</span>
+      </div>
+      <ul class="divide-y divide-base-content/5">
+        @for (t of g.items; track t.id) {
+          <li class="flex items-center gap-3 rounded-xl px-1 py-2.5 transition-colors hover:bg-base-content/[0.03]">
+            <span class="icon-chip size-10 rounded-full" [class]="t.amount > 0 ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/70 dark:bg-base-content/10'">
+              <app-icon [path]="cat(t.category).icon" class="size-4" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ t.name }}</p>
+              <p class="truncate text-xs text-base-content/50">
+                {{ cat(t.category).label }} · {{ t.date | date: 'h:mm a' }}
+                @if (t.reference && t.reference !== '-' && t.reference !== 'Pay') { · “{{ t.reference }}” }
+              </p>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-semibold tabular-nums" [class.text-success]="t.amount > 0">{{ t.amount | money: 'full' : true }}</p>
+              @if (t.fee > 0) {
+                <p class="text-[11px] text-base-content/40 tabular-nums">fee {{ t.fee | money }}</p>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+  } @empty {
+    <div class="py-16 text-center">
+      <span class="icon-chip mx-auto mb-3 size-11 bg-base-content/5 text-base-content/50">
+        <app-icon [path]="icons.search" class="size-5" />
+      </span>
+      <p class="text-sm font-medium">No transactions found</p>
+      <p class="mt-1 text-xs text-base-content/50">Try another search or clear a filter.</p>
+    </div>
+  }
+</section>
+
+@if (filterOpen()) {
+  <div class="filter-backdrop" role="dialog" aria-modal="true" aria-labelledby="filter-title"
+    (click)="closeFilters()">
+    <section id="transaction-filters" class="filter-sheet" (click)="$event.stopPropagation()">
+      <div class="filter-sheet__handle" aria-hidden="true"></div>
+      <header class="flex items-start justify-between gap-4">
+        <div>
+          <h2 id="filter-title" class="text-lg font-semibold">Filter transactions</h2>
+          <p class="mt-0.5 text-sm text-base-content/50">Narrow down what you want to see.</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-circle btn-sm" aria-label="Close filters" (click)="closeFilters()">
+          <app-icon [path]="icons.close" class="size-4" />
+        </button>
+      </header>
+
+      <div class="mt-6">
+        <p class="filter-label">Money flow</p>
+        <div class="seg mt-2 grid grid-cols-3" role="group" aria-label="Money flow">
+          @for (d of ['all', 'in', 'out']; track d) {
+            <button type="button" [attr.aria-pressed]="draftDirection() === d" (click)="draftDirection.set($any(d))">
+              {{ d === 'all' ? 'All' : d === 'in' ? 'Money in' : 'Money out' }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <div class="flex items-center justify-between">
+          <p class="filter-label">Category</p>
+          @if (draftCategory()) {
+            <button type="button" class="text-xs font-medium text-base-content/50 hover:text-base-content"
+              (click)="draftCategory.set(null)">Clear</button>
+          }
+        </div>
+        <div class="category-options mt-2">
+          @for (c of categoryChips(); track c.id) {
+            <button type="button" class="category-option" [attr.aria-pressed]="draftCategory() === c.id"
+              (click)="draftCategory.set(draftCategory() === c.id ? null : c.id)">
+              <span class="icon-chip size-9 bg-base-content/5 text-base-content/70">
+                <app-icon [path]="c.icon" class="size-4" />
+              </span>
+              <span class="min-w-0 flex-1 truncate text-left text-sm font-medium">{{ c.label }}</span>
+              <span class="text-xs tabular-nums text-base-content/40">{{ c.count }}</span>
+              @if (draftCategory() === c.id) {
+                <span class="category-option__check"><app-icon [path]="icons.check" class="size-3" /></span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+
+      <footer class="mt-6 flex items-center gap-3">
+        <button type="button" class="btn btn-ghost rounded-full" (click)="clearDraftFilters()">Reset</button>
+        <button type="button" class="btn btn-primary min-w-0 flex-1 rounded-full" (click)="applyFilters()">
+          Show {{ draftResultCount() }} {{ draftResultCount() === 1 ? 'transaction' : 'transactions' }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}
+
+}
