@@ -276,9 +276,9 @@
         <li class="tile flex gap-3">
           <span
             class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full"
-            [class]="n.tone === 'critical' ? 'bg-error/12 text-error' : n.tone === 'warning' ? 'bg-warning/15 text-warning' : 'bg-info/12 text-info'"
+            [class]="n.tone === 'critical' ? 'bg-error/12 text-error' : n.tone === 'warning' ? 'bg-warning/15 text-warning' : n.tone === 'good' ? 'bg-success/12 text-success' : 'bg-info/12 text-info'"
           >
-            <app-icon [path]="n.tone === 'info' ? icons.info : icons.alert" class="size-3.5" />
+            <app-icon [path]="n.tone === 'info' ? icons.info : n.tone === 'good' ? icons.check : icons.alert" class="size-3.5" />
           </span>
           <div>
             <p class="text-sm font-medium">{{ n.title }}</p>

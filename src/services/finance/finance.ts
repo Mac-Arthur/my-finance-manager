@@ -453,37 +453,184 @@ export class Finance {
   });
 
   // ---------- Insights ----------
+  /** Plain-language notes built only from the user's own transactions. Ordered by urgency. */
   readonly insights = computed<Insight[]>(() => {
     const out: Insight[] = [];
-    if (!this.transactions().length) return out;
-    const betting = this.spendingByCategory().find((c) => c.id === 'betting');
+    const rows = this.transactions();
+    if (!rows.length) return out;
+    const currency = this.currency();
+    const money = (value: number, format: 'whole' | 'full' = 'whole') => formatMoney(value, format, false, currency);
+    const pct = (ratio: number) => `${Math.round(ratio * 100)}%`;
+    const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const day = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const days = this.periodDays;
+    const outflows = this.outflows();
+    const inflows = this.inflows();
+    const moneyIn = this.moneyIn();
+    const moneyOut = this.moneyOut();
+    const categories = this.spendingByCategory();
+    const cat = (id: CategoryId) => categories.find((c) => c.id === id);
+
+    // Cash flow: did more come in than went out?
+    const net = this.net();
+    if (moneyIn || moneyOut) {
+      out.push(net >= 0
+        ? { tone: 'good', title: `You kept ${money(net)}`, body: `${money(moneyIn)} came in and ${money(moneyOut + this.fees())} went out, including fees.` }
+        : { tone: 'warning', title: `You spent ${money(-net)} more than came in`, body: `${money(moneyIn)} came in but ${money(moneyOut + this.fees())} went out, including fees.` });
+    }
+
+    // Betting.
+    const betting = cat('betting');
     if (betting) {
       out.push({
         tone: 'critical',
-        title: `${betting.count} bets in ${this.periodDays} days`,
-        body: `That's about ${formatMoney(this.monthly(betting.total), 'whole', false, this.currency())} a month at this rate (estimate).`,
+        title: `${plural(betting.count, 'bet')} in ${plural(days, 'day')}`,
+        body: `${money(betting.total)} on betting. That's about ${money(this.monthly(betting.total))} a month at this rate (estimate).`,
       });
     }
-    if (this.loansIn() > 0) {
+
+    // Loans.
+    if (this.loansIn() > 0 || this.loanRepaid() > 0) {
+      const loans = inflows.filter((t) => t.category === 'loan').length;
       out.push({
         tone: 'warning',
-        title: 'Borrowing and repayments',
-        body: `${formatMoney(this.loansIn(), 'whole', false, this.currency())} borrowed, ${formatMoney(this.loanRepaid(), 'whole', false, this.currency())} repaid in this period.`,
+        title: loans > 1 ? `${loans} loans taken` : 'Borrowing and repayments',
+        body: `${money(this.loansIn())} borrowed, ${money(this.loanRepaid())} repaid in this period.`,
       });
     }
+    if (moneyOut && this.loanRepaid() / moneyOut >= 0.15) {
+      out.push({ tone: 'warning', title: `${pct(this.loanRepaid() / moneyOut)} of spending went to loans`, body: 'Loan repayments are a big share of your money out. Borrowing less next time frees this up.' });
+    }
+
+    // Budgets.
+    for (const budget of this.budgetProgress().filter((b) => b.status !== 'ok')) {
+      out.push(budget.status === 'over'
+        ? { tone: 'critical', title: `Over your ${budget.label} budget`, body: `${money(budget.spent)} spent against a ${money(budget.limit)} limit — ${money(-budget.left)} over.` }
+        : { tone: 'warning', title: `${budget.label} budget nearly used`, body: `${pct(budget.ratio)} used. ${money(budget.left)} left.` });
+    }
+
+    // Spending trend (needs enough days to compare halves).
+    const trend = this.spendTrend();
+    if (days >= 14 && Math.abs(trend) >= 0.15) {
+      out.push(trend > 0
+        ? { tone: 'warning', title: `Spending up ${pct(trend)}`, body: 'You spent more in the second half of this period than in the first.' }
+        : { tone: 'good', title: `Spending down ${pct(-trend)}`, body: 'You spent less in the second half of this period than in the first. Nice.' });
+    }
+
+    // Fees and charges.
+    const chargeCount = rows.filter((t) => t.fee > 0).length + this.chargeRows().length;
     out.push({
-      tone: 'info',
-      title: `${formatMoney(this.allCharges(), 'full', false, this.currency())} in fees and charges`,
-      body: `Across ${this.transactions().filter((t) => t.fee > 0).length + this.chargeRows().length} transactions. Review these charges in your transaction history.`,
+      tone: moneyOut && this.allCharges() / moneyOut >= 0.03 ? 'warning' : 'info',
+      title: `${money(this.allCharges(), 'full')} in fees and charges`,
+      body: chargeCount
+        ? `Across ${plural(chargeCount, 'transaction')}${moneyOut ? `, about ${(this.allCharges() / moneyOut * 100).toFixed(1)}% of your spending` : ''}. Fewer, bigger transfers usually cost less.`
+        : 'No fees or charges in this period.',
     });
+
+    // Where the money went.
+    const top = categories[0];
+    if (top) {
+      out.push({ tone: 'info', title: `${top.label} is your biggest spend`, body: `${money(top.total)} across ${plural(top.count, 'payment')} — ${pct(top.share)} of your spending.` });
+    }
+    const second = categories[1];
+    if (second && second.share >= 0.1) {
+      out.push({ tone: 'info', title: `Next up: ${second.label}`, body: `${money(second.total)} — ${pct(second.share)} of your spending.` });
+    }
+
+    // Daily pace.
+    if (days && moneyOut) {
+      out.push({ tone: 'info', title: `About ${money(this.avgDailySpend())} a day`, body: `Your average spending over ${plural(days, 'day')}. That's roughly ${money(this.monthly(moneyOut))} a month.` });
+    }
+
+    // Busiest spending day.
+    const busiest = this.daily().reduce<DayTotal | null>((max, d) => (!max || d.spent > max.spent ? d : max), null);
+    if (busiest && busiest.spent > 0 && days > 1) {
+      out.push({ tone: 'info', title: `Biggest spending day: ${day(busiest.date)}`, body: `${money(busiest.spent)} went out that day.` });
+    }
+
+    // No-spend days.
+    const quiet = this.daily().filter((d) => d.spent === 0).length;
+    if (days >= 7 && quiet > 0) {
+      out.push({ tone: 'good', title: `${plural(quiet, 'no-spend day')}`, body: `Out of ${plural(days, 'day')}, ${quiet} had no spending at all.` });
+    }
+
+    // Largest single payment.
+    const largest = this.largestOut();
+    if (largest) {
+      out.push({ tone: 'info', title: `Largest payment: ${money(Math.abs(largest.amount))}`, body: `To ${largest.name} on ${day(largest.date)}.` });
+    }
+
+    // Who gets the most.
+    const recipient = this.topRecipients()[0];
+    if (recipient && recipient.count > 1) {
+      out.push({ tone: 'info', title: `Most paid: ${recipient.name}`, body: `${money(recipient.total)} across ${plural(recipient.count, 'payment')}.` });
+    }
+
+    // Small payments add up.
+    if (outflows.length >= 10) {
+      const sorted = outflows.map((t) => Math.abs(t.amount)).sort((a, b) => a - b);
+      const cutoff = sorted[Math.floor(sorted.length / 2)];
+      const small = sorted.filter((v) => v <= cutoff);
+      out.push({ tone: 'info', title: `${small.length} small payments add up`, body: `Payments of ${money(cutoff, 'full')} or less came to ${money(small.reduce((a, b) => a + b, 0))} in total.` });
+    }
+
+    // Airtime and cash out.
+    const airtime = cat('airtime');
+    if (airtime) {
+      out.push({ tone: 'info', title: `${money(airtime.total)} on airtime and data`, body: `${plural(airtime.count, 'top-up')}, about ${money(this.monthly(airtime.total))} a month. A bundle can be cheaper than many small top-ups.` });
+    }
+    const cash = cat('cash-out');
+    if (cash) {
+      out.push({ tone: 'info', title: `${money(cash.total)} taken out as cash`, body: `${plural(cash.count, 'withdrawal')}. Cash is harder to track, so keep an eye on where it goes.` });
+    }
+
+    // Time of day.
+    const times = this.timeOfDay();
+    const peak = times.reduce((max, t) => (t.value > max.value ? t : max), times[0]);
+    if (peak.value > 0 && moneyOut) {
+      out.push({ tone: 'info', title: `You spend most in the ${peak.label.toLowerCase()}`, body: `${pct(peak.value / moneyOut)} of your spending happens ${peak.range}.` });
+    }
+
+    // Weekend vs weekday.
+    const weekend = sum(outflows.filter((t) => t.date.getDay() === 0 || t.date.getDay() === 6));
+    if (moneyOut && days >= 7 && weekend / moneyOut >= 0.4) {
+      out.push({ tone: 'info', title: 'Weekends cost you more', body: `${pct(weekend / moneyOut)} of your spending happens on Saturdays and Sundays.` });
+    }
+
+    // Money in.
+    const income = this.incomeByCategory();
+    if (inflows.length) {
+      const senders = new Map<string, number>();
+      for (const t of inflows.filter((t) => t.category !== 'loan')) senders.set(t.name, (senders.get(t.name) ?? 0) + t.amount);
+      const [name, total] = [...senders.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+      out.push(name && total
+        ? { tone: 'info', title: `Top source of money: ${name}`, body: `${money(total)} — ${pct(total / moneyIn)} of everything that came in (${plural(inflows.length, 'payment')}).` }
+        : { tone: 'info', title: `${money(moneyIn)} came in`, body: `${plural(inflows.length, 'payment')}, mostly ${income[0]?.label.toLowerCase() ?? 'received'}.` });
+    } else {
+      out.push({ tone: 'info', title: 'No money came in', body: 'This period has no incoming payments.' });
+    }
+
+    // Balance low point.
+    const balances = this.balanceSeries();
+    if (balances.length > 1) {
+      const low = balances.reduce((min, b) => (b.value < min.value ? b : min), balances[0]);
+      out.push({ tone: low.value <= 0 ? 'warning' : 'info', title: `Lowest balance: ${money(low.value, 'full')}`, body: `On ${day(low.date)}. ${low.value <= 0 ? 'A small buffer helps avoid running empty.' : 'Your balance stayed above zero.'}` });
+    }
+
+    // Own transfers.
     if (this.ownTransfers().length) {
       out.push({
         tone: 'info',
-        title: `${this.ownTransfers().length} own-account transfers`,
-        body: `${formatMoney(this.movedToOwn(), 'whole', false, this.currency())} moved between accounts you marked as your own.`,
+        title: `${plural(this.ownTransfers().length, 'own-account transfer')}`,
+        body: `${money(this.movedToOwn())} moved between accounts you marked as your own.`,
       });
     }
-    return out;
+
+    // Activity summary (always available).
+    out.push({ tone: 'info', title: `${plural(rows.length, 'transaction')} in ${plural(Math.max(days, 1), 'day')}`, body: `${outflows.length} out, ${inflows.length} in — about ${(rows.length / Math.max(days, 1)).toFixed(1)} a day.` });
+
+    const rank = { critical: 0, warning: 1, good: 2, info: 3 } as const;
+    return out.sort((a, b) => rank[a.tone] - rank[b.tone]);
   });
 
   constructor() {

@@ -25,6 +25,17 @@ describe('Finance without demo data', () => {
     expect(finance.avgDailySpend()).toBe(0);
   });
 
+  it('gives at least five insights for an ordinary statement, most urgent first', () => {
+    const draft = parseCsv('date,name,amount,fee,balance\n2026-11-01T09:00,Salary,500,0,500\n2026-11-02T13:00,Food vendor,-40,0.5,459.5\n2026-11-03T19:00,Bus fare,-10,0,449.5\n2026-11-05T19:30,Food vendor,-25,0.5,424');
+    draft.account = 'Test wallet';
+    TestBed.inject(Statements).items.set([{ id: 'test', name: 'test.csv', kind: 'csv', size: 1, addedAt: '2026-11-05', status: 'confirmed', file: new Blob(), draft }]);
+    const insights = finance.insights();
+    expect(insights.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(insights.map(i => i.title)).size).toBe(insights.length);
+    const rank = { critical: 0, warning: 1, good: 2, info: 3 };
+    expect(insights.map(i => rank[i.tone])).toEqual([...insights.map(i => rank[i.tone])].sort((a, b) => a - b));
+  });
+
   it('filters reviewed transactions at a calendar boundary', () => {
     const draft = parseCsv('date,name,amount,fee,balance\n2026-10-31T23:59,Test recipient,-10,0,90\n2026-11-01T00:01,Test recipient,-10,0,80');
     draft.account = 'Test wallet';
