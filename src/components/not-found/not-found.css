@@ -100,7 +100,7 @@
 h1 {
   max-width: 10ch;
   margin: 1.2rem 0 1.3rem;
-  font-size: clamp(3rem, 6.8vw, 6.5rem);
+  font-size: clamp(2rem, 4.2vw, 3.6rem);
   font-weight: 650;
   line-height: .92;
   letter-spacing: -.072em;
@@ -110,7 +110,7 @@ h1 {
   max-width: 35rem;
   margin: 0;
   color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
-  font-size: clamp(.95rem, 1.4vw, 1.1rem);
+  font-size: clamp(.88rem, 1.2vw, .98rem);
   line-height: 1.7;
 }
 
@@ -190,7 +190,7 @@ h1 {
 .receipt-front { z-index: 2; transform: translate(-1.5rem, -.8rem) rotate(-4deg); }
 .receipt-mark { display: flex; justify-content: space-between; }.receipt-mark img { width: 2.7rem; height: 2.7rem; border-radius: .9rem; }
 .receipt-front > p { margin: 2.2rem 0 0; color: #747068; font-size: .7rem; }
-.receipt-front > strong { display: block; margin: .25rem 0 1.7rem; font-size: clamp(4.4rem, 8vw, 7rem); line-height: 1; letter-spacing: -.08em; }
+.receipt-front > strong { display: block; margin: .25rem 0 1.7rem; font-size: clamp(3rem, 5.5vw, 4.5rem); line-height: 1; letter-spacing: -.08em; }
 .receipt-line { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgb(29 27 23 / .1); padding-block: .8rem; font-size: .77rem; }
 .receipt-line span { color: #77736a; }.receipt-line b { font-size: .82rem; }
 .receipt-dashes { margin: 1.2rem 0; border-top: 2px dashed rgb(29 27 23 / .18); }.receipt-front small { color: #77736a; }

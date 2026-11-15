@@ -63,6 +63,7 @@ export interface BarDatum {
               @if (hover() === i) {
                 <span
                   class="pointer-events-none absolute z-20 -translate-y-2 rounded-lg bg-neutral px-2.5 py-1.5 text-left text-xs whitespace-nowrap text-neutral-content shadow-lg fade-in"
+                  [class]="tipAlign(i)"
                   [style.bottom.%]="pct(d.value)"
                 >
                   <span class="block opacity-70">{{ d.title }}</span>
@@ -120,6 +121,13 @@ export class SpendBars {
   pct(v: number) {
     // Keep a visible stub for zero days so the rhythm of the week still reads.
     return Math.min(100, Math.max(4, (v / this.max()) * 100));
+  }
+
+  /** Keep the tooltip inside the card: bars near an edge anchor it to that edge instead of centring it. */
+  tipAlign(i: number) {
+    const last = this.data().length - 1;
+    if (last < 3) return 'left-1/2 -translate-x-1/2';
+    return i < 2 ? 'left-0' : i > last - 2 ? 'right-0' : 'left-1/2 -translate-x-1/2';
   }
 
   barClass(i: number, v: number) {

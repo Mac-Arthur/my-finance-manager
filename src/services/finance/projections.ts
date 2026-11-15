@@ -1,5 +1,6 @@
 import { CATEGORIES } from '../../data/categories';
 import { CategoryId, CurrencyCode, Transaction } from '../../models/finance';
+import { backtestForecast, buildForecastModel, FLEXIBLE_CATEGORIES as FLEXIBLE, ForecastBacktest, ForecastModel, ForecastResult, simulateForecast } from './forecast';
 
 export type ProjectionConfidence = 'low' | 'medium' | 'high';
 export type ProjectionTone = 'good' | 'warning' | 'critical' | 'info';
@@ -59,9 +60,12 @@ export interface ProjectionReport {
   signals: ProjectionSignal[];
   recurring: RecurringCommitment[];
   runwayDays: number | null;
+  /** Day-by-day model: regular pay and bills on their dates plus replayed everyday activity. */
+  model: ForecastModel;
+  /** The latest 30 days checked against an estimate made without them. Null when history is too short. */
+  backtest: ForecastBacktest | null;
 }
 
-const FLEXIBLE = new Set<CategoryId>(['transport', 'food', 'betting', 'airtime', 'shopping', 'giving', 'personal-care']);
 const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 const median = (values: number[]) => {
   if (!values.length) return 0;
@@ -136,7 +140,7 @@ function recurringCommitments(transactions: Transaction[], anchor: Date): Recurr
   }).sort((a, b) => b.monthly - a.monthly).slice(0, 6);
 }
 
-function scenario(id: ScenarioId, income: number, spending: number, flexible: number, latestBalance: number | null): ProjectionScenario {
+function scenario(id: ScenarioId, income: number, spending: number, flexible: number, latestBalance: number | null, forecast: ForecastResult): ProjectionScenario {
   const definitions: Record<ScenarioId, { label: string; shortLabel: string; description: string; adjustedSpending: number }> = {
     current: { label: 'Current pace', shortLabel: 'Current', description: 'Recent income and spending continue at their typical pace.', adjustedSpending: spending },
     better: { label: 'Trim everyday spending', shortLabel: 'Spend less', description: 'Try spending 10% less on selected everyday categories. Income, bills and repayments stay unchanged. Check which reductions are realistic for you.', adjustedSpending: Math.max(0, spending - flexible * .1) },
@@ -154,8 +158,8 @@ function scenario(id: ScenarioId, income: number, spending: number, flexible: nu
     monthlyNet,
     projections: ([30, 60, 90] as const).map(days => ({
       days,
-      balance: latestBalance === null ? null : latestBalance + monthlyNet * days / 30,
-      cashFlow: monthlyNet * days / 30,
+      balance: latestBalance === null ? null : forecast.days[days].mid,
+      cashFlow: forecast.days[days].mid - (latestBalance ?? 0),
     })),
   };
 }
@@ -171,15 +175,27 @@ export function buildProjectionReport(transactions: Transaction[], latestBalance
   const baselineSpending = median(months.map(month => month.spending));
   const baselineFlexible = median(months.map(month => month.flexible));
   const baselineFees = median(months.map(month => month.fees));
-  const confidence: ProjectionConfidence = closedMonths.length >= 2 ? 'medium' : 'low';
-  const confidenceReason = confidence === 'medium'
-      ? `${closedMonths.length} imported calendar months provide an early pattern. Missing transactions or partial months can change the result.`
-      : closedMonths.length === 1
-        ? 'Only one earlier calendar month is available. Treat this as an early estimate.'
-        : 'This uses available activity within the last 30 days of your statement, which may cover fewer days. It is not yet a reliable monthly pattern.';
-  const scenarios = (['current', 'better', 'higher'] as const).map(id => scenario(id, baselineIncome, baselineSpending, baselineFlexible, latestBalance));
+  const model = buildForecastModel(rows, asOf);
+  const backtest = backtestForecast(rows, asOf);
+  const confidence: ProjectionConfidence = closedMonths.length < 2 ? 'low'
+    : closedMonths.length >= 5 && backtest?.within && model.quietDays < 30 ? 'high' : 'medium';
+  const confidenceReason = (confidence === 'high'
+      ? `${closedMonths.length} imported calendar months show a steady pattern, and the latest 30 days landed inside the range estimated without them.`
+      : confidence === 'medium'
+        ? `${closedMonths.length} imported calendar months provide an early pattern. Missing transactions or partial months can change the result.`
+        : closedMonths.length === 1
+          ? 'Only one earlier calendar month is available. Treat this as an early estimate.'
+          : 'This uses available activity within the last 30 days of your statement, which may cover fewer days. It is not yet a reliable monthly pattern.')
+    + (model.quietDays >= 30 ? ` There is a ${model.quietDays}-day stretch with no activity. If a statement is missing, import it.` : '');
+  const forecasts = {
+    current: simulateForecast(model, { start: latestBalance }),
+    better: simulateForecast(model, { start: latestBalance, trim: .1 }),
+    higher: simulateForecast(model, { start: latestBalance, growth: .1 }),
+  };
+  const scenarios = (['current', 'better', 'higher'] as const).map(id => scenario(id, baselineIncome, baselineSpending, baselineFlexible, latestBalance, forecasts[id]));
   const currentNet = scenarios[0].monthlyNet;
-  const runwayDays = latestBalance !== null && latestBalance > 0 && currentNet < 0 ? Math.max(1, Math.floor(latestBalance / (-currentNet / 30))) : null;
+  const linearRunway = latestBalance !== null && latestBalance > 0 && currentNet < 0 ? Math.max(1, Math.floor(latestBalance / (-currentNet / 30))) : null;
+  const runwayDays = forecasts.current.zeroDay ?? linearRunway;
   const recurring = recurringCommitments(rows, asOf);
   const outflows = rows.filter(transaction => transaction.amount < 0 && transaction.category !== 'own-accounts');
   const fees = sum(rows.map(transaction => transaction.fee)) + sum(outflows.filter(transaction => transaction.category === 'charges').map(transaction => Math.abs(transaction.amount)));
@@ -196,7 +212,15 @@ export function buildProjectionReport(transactions: Transaction[], latestBalance
   signals.push(currentNet >= 0
     ? { id: 'cash-flow', tone: 'good', title: 'Income covers the spending shown', body: 'If this pattern continues, this is what could remain each month. Keep upcoming bills covered before treating it as money to spend.', value: currentNet, valueKind: 'money' }
     : { id: 'cash-flow', tone: 'critical', title: 'Spending is ahead of typical income', body: 'If the recent pattern continues, the imported balance may keep falling.', value: currentNet, valueKind: 'money' });
-  if (runwayDays !== null) signals.push({ id: 'runway', tone: runwayDays < 45 ? 'critical' : 'warning', title: `The recorded balance could last about ${runwayDays} days`, body: 'Counted from your latest statement date if money keeps leaving faster than it comes in. Actual bill and pay dates may bring the balance down sooner.', value: runwayDays, valueKind: 'number' });
+  if (runwayDays !== null) signals.push({ id: 'runway', tone: runwayDays < 45 ? 'critical' : 'warning', title: `The recorded balance could last about ${runwayDays} days`, body: currentNet >= 0 ? 'Counted from your latest statement date. Regular money in is expected after that, so this is a timing gap before it arrives rather than a monthly shortfall.' : 'Counted from your latest statement date if money keeps leaving faster than it comes in. Actual bill and pay dates may bring the balance down sooner.', value: runwayDays, valueKind: 'number' });
+  const shortDate = (date: Date) => date.toLocaleDateString('en-GH', { day: 'numeric', month: 'short' });
+  const { dipShare, lowest } = forecasts.current;
+  if (runwayDays === null && dipShare !== null && dipShare >= .2 && lowest.day > 0) signals.push({ id: 'tight', tone: dipShare >= .5 ? 'critical' : 'warning', title: `Money could get tight around ${shortDate(lowest.date)}`, body: `We replayed your past days many times. About ${Math.max(1, Math.round(dipShare * 10))} in 10 replays dipped below zero within 90 days. The amount shown is the lowest point of the middle estimate.`, value: lowest.mid, valueKind: 'money' });
+  const payFlows = model.flows.filter(flow => flow.direction === 'in');
+  if (payFlows.length) signals.push({ id: 'pay-rhythm', tone: 'good', title: `${payFlows.length} regular money-in ${payFlows.length === 1 ? 'pattern' : 'patterns'} found`, body: `The next one is expected around ${shortDate(payFlows[0].nextDate)}. Regular money in is placed on its expected dates in the 90-day path.`, value: sum(payFlows.map(flow => flow.amount)), valueKind: 'money' });
+  else if (baselineIncome > 0) signals.push({ id: 'pay-rhythm', tone: 'info', title: 'Money in arrives without a fixed rhythm', body: 'No steady payday was found, so the range around the 90-day path is wider. More months of history may reveal one.' });
+  const peak = model.weekdayOut.indexOf(Math.max(...model.weekdayOut));
+  if (model.historyDays >= 56 && model.dailyOut > 0 && model.weekdayOut[peak] >= model.dailyOut * 1.5) signals.push({ id: 'weekday', tone: 'info', title: `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][peak]}s are your biggest spending days`, body: 'Average everyday spending on that day of the week, regular bills left out. Planning ahead for it can smooth the week.', value: model.weekdayOut[peak], valueKind: 'money' });
   if (latestMonth && previousMonth) {
     const change = previousMonth.spending ? (latestMonth.spending - previousMonth.spending) / previousMonth.spending : 0;
     if (previousMonth.spending > 0) signals.push({ id: 'trend', tone: change > .1 ? 'warning' : change < -.1 ? 'good' : 'info', title: change > .1 ? 'Spending rose in the latest imported month' : change < -.1 ? 'Spending eased in the latest imported month' : 'Monthly spending is relatively steady', body: `${latestMonth.label} compared with ${previousMonth.label}. Check that both months have complete imports before treating this as a change in habits.`, value: change, valueKind: 'percent' });
@@ -237,8 +261,10 @@ export function buildProjectionReport(transactions: Transaction[], latestBalance
     baselineFees,
     latestBalance,
     scenarios,
-    signals: signals.slice(0, 8),
+    signals: signals.slice(0, 10),
     recurring,
     runwayDays,
+    model,
+    backtest,
   };
 }

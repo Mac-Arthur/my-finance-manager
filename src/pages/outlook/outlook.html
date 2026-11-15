@@ -5,64 +5,153 @@
     <div><p class="eyebrow">Your next chapter</p><h1>Outlook</h1><p>{{ f.statement.provider }} · {{ outlook.currency }}</p></div>
     <span class="chip"><app-icon [path]="icons.sparkles" class="size-4" /> Private & on-device</span>
   </header>
-  <div class="context-line"><span>From {{ outlook.asOf | date: 'd MMM y' }} · {{ outlook.confidence === 'low' ? 'Limited history' : 'Early estimate' }}</span><a routerLink="/statements">Add history ↗</a></div>
+  <div class="context-line"><span>From {{ outlook.asOf | date: 'd MMM y' }} · {{ outlook.confidence === 'low' ? 'Limited history' : outlook.confidence === 'high' ? 'Steady history' : 'Early estimate' }}</span><a routerLink="/statements">Add history ↗</a></div>
 
   <section class="slide feature-card">
-    <div class="slide-heading"><span class="step">01</span><p class="eyebrow">The big picture</p></div>
-    <h2>{{ outlook.baselineIncome === 0 ? 'Your income picture is incomplete.' : outlook.scenarios[0].monthlyNet < 0 ? 'Your spending is ahead.' : outlook.scenarios[0].monthlyNet === 0 ? 'Money in meets money out.' : 'You have room to build a buffer.' }}</h2>
-    <div class="snapshot">
-      <div><span>Typical money in / month</span><strong>{{ outlook.baselineIncome | money: 'whole' }}</strong></div>
-      <div><span>Typical money out / month</span><strong>{{ outlook.baselineSpending | money: 'whole' }}</strong></div>
-      <div class="net"><span>{{ outlook.scenarios[0].monthlyNet < 0 ? 'Monthly gap' : 'Monthly left over' }}</span><strong>{{ abs(outlook.scenarios[0].monthlyNet) | money: 'whole' }}</strong></div>
-    </div>
-    <div class="takeaway"><app-icon [path]="icons.info" class="size-5 shrink-0" />
-      @if (outlook.baselineIncome === 0) { <p>Import the account receiving your pay before relying on these estimates.</p> }
-      @else if (outlook.scenarios[1].monthlyNet < 0) { <p>Small cuts help. The spend-less plan still leaves {{ abs(outlook.scenarios[1].monthlyNet) | money: 'whole' }}/month to cover.</p> }
-      @else if (outlook.scenarios[0].monthlyNet < 0) { <p>The spend-less example could close your gap. Try one change below.</p> }
-      @else { <p>Cover upcoming bills first. Set aside what remains as a buffer.</p> }
-    </div>
-  </section>
-
-  <section class="slide panel">
-    <div class="slide-heading"><span class="step">02</span><p class="eyebrow">Explore the next 90 days</p></div>
-    <div class="section-heading"><h2>What if you…</h2><span class="muted">Examples, not promises</span></div>
-    <div class="scenario-tabs" role="group" aria-label="Spending scenario">
-      @for (scenario of outlook.scenarios; track scenario.id) { <button type="button" [attr.aria-pressed]="selectedScenarioId() === scenario.id" (click)="selectScenario(scenario.id)">{{ scenario.shortLabel }}</button> }
-    </div>
-    @if (selectedScenario(); as scenario) {
-      <div aria-live="polite" aria-atomic="true">
-        <p class="scenario-note">{{ scenario.id === 'current' ? 'Keep income and spending at their current pace.' : scenario.id === 'better' ? 'Reduce selected everyday spending by 10%. Income stays the same.' : 'Spend 10% more overall. Income stays the same.' }}</p>
-        <div class="forecast">
-          <div class="forecast-main">
-            <span class="eyebrow">{{ outlook.latestBalance === null ? 'Money gained or used' : 'Possible balance' }} · day 90</span>
-            @if (ninetyDayValue(); as projection) {
-              <strong class="forecast-value" [class.text-error]="(projection.balance ?? projection.cashFlow) < 0">{{ (projection.balance ?? projection.cashFlow) | money: 'whole' : projection.balance === null }}</strong>
-              <span class="muted">{{ horizonDate(90) | date: 'd MMM y' }}</span>
-              @if (projection.balance !== null && projection.balance < 0) { <p class="short-note">A gap to cover, not an available overdraft.</p> }
-            }
-            @if (scenario.id !== 'current') { <p class="comparison">{{ abs(scenario.monthlyNet - outlook.scenarios[0].monthlyNet) * 3 | money: 'whole' }} {{ scenario.id === 'better' ? 'more' : 'less' }} than current pace</p> }
-          </div>
-          <ol class="outlook-timeline" aria-label="Estimated progress">
-            @for (projection of scenario.projections; track projection.days) {
-              <li><div><span>Day {{ projection.days }}</span><small>{{ horizonDate(projection.days) | date: 'd MMM' }}</small></div><strong>{{ (projection.balance ?? projection.cashFlow) | money: 'whole' : projection.balance === null }}</strong></li>
-            }
-          </ol>
+    <div class="slide-heading"><span class="step">01</span><p class="eyebrow">Your outlook at a glance</p></div>
+    @if (currentOutcome(); as outcome) {
+      <div class="outlook-hero" [attr.data-tone]="outcome.zero || outcome.change < 0 ? 'watch' : 'good'">
+        <div class="verdict">
+          <span class="status-pill"><i></i>If your current pattern continues</span>
+          <h2>
+            @if (outlook.baselineIncome === 0) { We need a clearer picture of your income. }
+            @else if (outcome.zero) { Your money could run short around {{ outcome.zero.date | date: 'd MMM' }}. }
+            @else if (outcome.change < 0) { Your recorded balance could fall by {{ abs(outcome.change) | money: 'whole' }}. }
+            @else if (outcome.change > 0) { You could build {{ outcome.change | money: 'whole' }} over 90 days. }
+            @else { Your balance may stay around where it is. }
+          </h2>
+          <p>
+            @if (outlook.baselineIncome === 0) { We found spending, but not dependable income in this account. Import the account that receives your pay before relying on the projection. }
+            @else if (outcome.zero) { At the pace found in your statements, money may leave faster than it arrives. The date is an early warning, not a certainty. }
+            @else if (outlook.scenarios[0].monthlyNet < 0) { A typical month is short by {{ abs(outlook.scenarios[0].monthlyNet) | money: 'whole' }}. The balance may cover it for now, but the pattern is not sustainable. }
+            @else if (outcome.change < 0) { Your monthly totals look manageable, but the timing of pay and payments can still pull the balance down. }
+            @else { Your typical income covers your spending. Keeping the difference could become your emergency buffer. }
+          </p>
+        </div>
+        <div class="outcome-card">
+          <span>{{ outlook.latestBalance === null ? 'Estimated change by' : 'Estimated balance on' }} {{ outcome.end.date | date: 'd MMM' }}</span>
+          <strong [class.text-error]="outcome.end.mid < 0">{{ outcome.end.mid | money: 'whole' : outlook.latestBalance === null }}</strong>
+          <small>Likely range {{ outcome.end.low | money: 'compact' : outlook.latestBalance === null }} – {{ outcome.end.high | money: 'compact' : outlook.latestBalance === null }}</small>
         </div>
       </div>
     }
-    <p class="footnote">Starts from your statement date, not today. Missing activity can change the result.</p>
+
+    <div class="money-story" aria-label="Your typical monthly money flow">
+      <div><span>Comes in</span><strong>{{ outlook.baselineIncome | money: 'whole' }}</strong><small>typical month</small></div>
+      <span class="operator" aria-hidden="true">−</span>
+      <div><span>Goes out</span><strong>{{ outlook.baselineSpending | money: 'whole' }}</strong><small>spending & fees</small></div>
+      <span class="operator" aria-hidden="true">=</span>
+      <div class="net" [attr.data-negative]="outlook.scenarios[0].monthlyNet < 0">
+        <span>{{ outlook.scenarios[0].monthlyNet < 0 ? 'Falls short' : 'Left to build with' }}</span>
+        <strong>{{ abs(outlook.scenarios[0].monthlyNet) | money: 'whole' }}</strong><small>each month</small>
+      </div>
+    </div>
+    @if (safe(); as s) {
+      @if (staleDays() <= 7) {
+        <div class="safe">
+          <span class="safe-icon"><app-icon [path]="s.perDay > 0 ? icons.check : icons.alert" class="size-5" /></span>
+          <div class="safe-copy"><span>{{ s.perDay > 0 ? 'A safer daily limit for now' : 'Pause optional spending for now' }}</span><strong>{{ s.perDay | money: 'whole' }}<small> / day until {{ s.until | date: 'd MMM' }}</small></strong></div>
+          <p>@if (s.committedCount) { After keeping {{ s.committed | money: 'whole' }} aside for {{ s.committedCount }} expected {{ s.committedCount === 1 ? 'payment' : 'payments' }}. } Based only on money already recorded in this account.</p>
+        </div>
+      } @else {
+        <div class="safe stale"><span class="safe-icon"><app-icon [path]="icons.info" class="size-5" /></span><p>Your statement ends {{ staleDays() }} days ago. <a routerLink="/statements">Import a newer one</a> for a useful daily spending limit.</p></div>
+      }
+    }
+    <div class="takeaway"><span class="takeaway-label">What to do now</span><app-icon [path]="icons.sparkles" class="size-5 shrink-0" />
+      @if (outlook.baselineIncome === 0) { <p>Import the account receiving your pay before relying on these estimates.</p> }
+      @else if (outlook.scenarios[1].monthlyNet < 0) { <p>Start by reducing one flexible category below. Even a {{ trim() * 100 | number: '1.0-0' }}% cut helps, but you will still need to close about {{ abs(outlook.scenarios[1].monthlyNet) | money: 'whole' }} each month.</p> }
+      @else if (outlook.scenarios[0].monthlyNet < 0) { <p>A {{ trim() * 100 | number: '1.0-0' }}% cut to everyday spending could close the monthly gap. Test it in the next card.</p> }
+      @else if (outlook.runwayDays; as days) { <p>Keep enough aside for the regular payments below. Your lowest point may arrive before the next money comes in.</p> }
+      @else { <p>Keep the monthly difference instead of absorbing it into new spending. Aim first for one month of typical expenses: {{ outlook.baselineSpending | money: 'whole' }}.</p> }
+    </div>
   </section>
 
   <section class="slide panel">
-    <div class="slide-heading"><span class="step">03</span><p class="eyebrow">Make one small change</p></div>
+    <div class="slide-heading"><span class="step">02</span><p class="eyebrow">Test the next 90 days</p></div>
+    <div class="section-heading"><div><h2>See what one habit changes</h2><p class="section-intro">Choose a path. The projection updates using the pay, bills and day-to-day patterns found in your statements.</p></div><span class="muted">Planning tool · not a promise</span></div>
+    <div class="scenario-tabs" role="group" aria-label="Choose a 90-day path">
+      @for (scenario of scenarioChoices(); track scenario.id) {
+        <button type="button" [attr.aria-pressed]="selectedScenarioId() === scenario.id" (click)="selectScenario(scenario.id)">
+          <span>{{ scenario.id === 'current' ? 'Keep going' : scenario.id === 'better' ? 'Spend less' : 'Spend more' }}</span>
+          <strong>{{ scenario.end.mid | money: 'compact' : outlook.latestBalance === null }}</strong>
+          <small>@if (scenario.id === 'current') { Current pattern } @else if (scenario.difference === 0) { No material change } @else { {{ abs(scenario.difference) | money: 'compact' }} {{ scenario.difference > 0 ? 'better' : 'worse' }} }</small>
+        </button>
+      }
+    </div>
+    @if (forecast(); as path) {
+      <div class="scenario-workbench" aria-live="polite">
+        <div class="scenario-note">
+        @switch (selectedScenarioId()) {
+          @case ('better') {
+            <label class="trim"><span>Reduce everyday spending by <strong>{{ trim() * 100 | number: '1.0-0' }}%</strong></span>
+              <input type="range" class="range range-primary range-xs" min="5" max="30" step="5" [value]="trim() * 100" (input)="setTrim($event)" /></label>
+          }
+          @case ('higher') { <p><strong>Pressure test:</strong> spending rises 10% while income stays the same.</p> }
+          @default { <p><strong>Your baseline:</strong> regular pay and payments repeat, while everyday spending follows your recent pattern.</p> }
+        }
+        </div>
+        @if (selectedChoice(); as choice) {
+          <div class="scenario-result" [attr.data-negative]="choice.end.mid < 0">
+            <span>{{ outlook.latestBalance === null ? 'Estimated change' : 'Estimated balance' }} · {{ choice.end.date | date: 'd MMM' }}</span>
+            <strong>{{ choice.end.mid | money: 'whole' : outlook.latestBalance === null }}</strong>
+            @if (choice.id !== 'current' && choice.difference !== 0) { <small>{{ abs(choice.difference) | money: 'whole' }} {{ choice.difference > 0 ? 'more kept' : 'less left' }} than your current pattern</small> }
+            @else if (choice.id !== 'current') { <small>No material difference with the spending found</small> }
+            @else { <small>Likely range {{ choice.end.low | money: 'compact' : outlook.latestBalance === null }} – {{ choice.end.high | money: 'compact' : outlook.latestBalance === null }}</small> }
+          </div>
+        }
+      </div>
+      <app-forecast-chart [days]="path.days" [relative]="outlook.latestBalance === null" />
+      <div aria-live="polite" aria-atomic="true">
+        <ol class="checkpoints" aria-label="Estimated {{ outlook.latestBalance === null ? 'money gained or used' : 'balance' }}">
+          @for (day of checkpoints(); track day.day) {
+            <li><span>In {{ day.day }} days · {{ day.date | date: 'd MMM' }}</span>
+              <strong [class.text-error]="day.mid < 0">{{ day.mid | money: 'whole' : outlook.latestBalance === null }}</strong>
+              <small>{{ day.low | money: 'compact' : outlook.latestBalance === null }} to {{ day.high | money: 'compact' : outlook.latestBalance === null }}</small></li>
+          }
+        </ol>
+        <ul class="path-notes" aria-label="What this path means">
+          @if (path.lowest.day > 0) { <li>Lowest point: {{ path.lowest.mid | money: 'whole' : outlook.latestBalance === null }} around {{ path.lowest.date | date: 'd MMM' }}.</li> }
+          @if (path.zeroDay; as zero) { <li>The middle estimate goes below zero around {{ path.days[zero].date | date: 'd MMM' }}. That is a gap to cover, not an available overdraft.</li> }
+          @else if (path.dipShare !== null && path.dipShare >= .05) { <li>About {{ round(path.dipShare * 10) || 1 }} in 10 replays dipped below zero at some point.</li> }
+          @if (bufferDay(); as buffer) { <li>You could hold one typical month of spending ({{ outlook.baselineSpending | money: 'whole' }}) by {{ buffer.date | date: 'd MMM' }}.</li> }
+        </ul>
+      </div>
+    }
+    <p class="footnote">Starts from your statement date ({{ outlook.asOf | date: 'd MMM' }}), not today. Missing activity can change the result.</p>
+  </section>
+
+  <section class="slide panel">
+    <div class="slide-heading"><span class="step">03</span><p class="eyebrow">Regular money in and out</p></div>
+    <div class="section-heading"><h2>Coming up</h2><span class="muted">Found in your history · check they are right</span></div>
+    @if (outlook.model.flows.length) {
+      <ul class="flows">
+        @for (flow of outlook.model.flows; track flow.id) {
+          <li [class.off]="excluded().has(flow.id)">
+            <span class="icon-chip" [class]="flow.direction === 'in' ? 'bg-success/15' : 'bg-error/15'"><app-icon [path]="flow.direction === 'in' ? icons.arrowIn : icons.arrowOut" class="size-4" /></span>
+            <div><strong>{{ flow.name }}</strong>
+              <small>{{ flow.cadence === 'fortnightly' ? 'Every two weeks' : (flow.cadence | titlecase) }} · seen {{ flow.occurrences }} times ·
+                @if (flow.overdue) { expected already, not seen yet } @else { next around {{ flow.nextDate | date: 'd MMM' }} }</small></div>
+            <strong class="amount">{{ (flow.direction === 'in' ? flow.amount : -flow.amount) | money: 'whole' : true }}</strong>
+            <button type="button" class="btn btn-ghost btn-xs rounded-full" (click)="toggleFlow(flow.id)" [attr.aria-label]="(excluded().has(flow.id) ? 'Include ' : 'Leave out ') + flow.name">{{ excluded().has(flow.id) ? 'Include' : 'Leave out' }}</button>
+          </li>
+        }
+      </ul>
+      <p class="footnote" aria-live="polite">Next 30 days from these: about {{ upcoming().in | money: 'whole' }} in and {{ upcoming().out | money: 'whole' }} out. Leave out anything that has ended and the path above updates straight away. Nothing here is saved or sent anywhere.</p>
+    } @else {
+      <p class="takeaway"><app-icon [path]="icons.info" class="size-5 shrink-0" />No regular pay or bills found yet. They show up once the same name appears on a steady weekly or monthly rhythm, so more months of history help.</p>
+    }
+  </section>
+
+  <section class="slide panel">
+    <div class="slide-heading"><span class="step">04</span><p class="eyebrow">Make one small change</p></div>
     <div class="section-heading"><h2>Your next moves</h2><span class="muted">Example targets · essentials first</span></div>
     <div class="actions">
       @for (action of outlook.actions; track action.category) {
         <article class="action-card">
-          <div class="action-heading"><app-icon [path]="categories[action.category].icon" class="size-5" /><h3>{{ categories[action.category].label }}</h3><span class="chip">−10%</span></div>
-          <strong class="saving">{{ action.saving | money: 'full' }}<small> / month saved</small></strong>
-          <div class="target-track" aria-hidden="true"><i></i></div>
-          <dl><div><dt>Typical</dt><dd>{{ action.monthly | money: 'full' }}</dd></div><div><dt>Try this target</dt><dd>{{ action.target | money: 'full' }}</dd></div></dl>
+          <div class="action-heading"><app-icon [path]="categories[action.category].icon" class="size-5" /><h3>{{ categories[action.category].label }}</h3><span class="chip">−{{ trim() * 100 | number: '1.0-0' }}%</span></div>
+          <strong class="saving">{{ action.monthly * trim() | money: 'full' }}<small> / month saved</small></strong>
+          <div class="target-track" aria-hidden="true"><i [style.width.%]="100 - trim() * 100"></i></div>
+          <dl><div><dt>Typical</dt><dd>{{ action.monthly | money: 'full' }}</dd></div><div><dt>Try this target</dt><dd>{{ action.monthly * (1 - trim()) | money: 'full' }}</dd></div></dl>
         </article>
       } @empty { <p class="takeaway">Review your categories first. Unlabelled transfers and withdrawals may hide useful patterns.</p> }
     </div>
@@ -112,8 +201,15 @@
       <li><strong>{{ outlook.confidence | titlecase }} estimate strength.</strong> {{ outlook.confidenceReason }}</li>
       <li>“Typical” uses the middle value across up to six earlier imported months. Without earlier months, we use available activity within the last 30 days without scaling it up.</li>
       <li>Internal transfers and borrowed income are excluded. Repayments remain in spending.</li>
-      <li>The spend-less example reduces selected everyday categories by 10%. Individual category targets may not add up to the scenario saving.</li>
-      <li>Each 30-day step repeats the same estimate. Paydays, bill dates, missing activity and future changes are unknown.</li>
+      <li>Money that arrives or leaves on a steady weekly, two-weekly or monthly rhythm, with a similar amount each time, is placed on its next expected dates. You can leave any of these out.</li>
+      <li>Everything else is filled in by replaying your real days from the last 90 days of history (matching the day of the week when there are enough), 400 times. The line is the middle result. The shaded range holds 8 in 10 replays.</li>
+      <li>The spend-less example reduces selected everyday categories by the share you pick. Individual category targets may not add up to the scenario saving.</li>
+      @if (outlook.backtest; as check) {
+        <li><strong>Self-check.</strong> We hid your latest {{ check.days }} days and estimated them from earlier history only. The estimated change was {{ check.low | money: 'whole' : true }} to {{ check.high | money: 'whole' : true }}. What really happened: {{ check.actual | money: 'whole' : true }}, {{ check.within ? 'inside the range.' : 'outside the range, so treat the path with extra care.' }}</li>
+      } @else {
+        <li><strong>Self-check not available yet.</strong> With about 75 days of history, we test the method on your own latest month and show the result here.</li>
+      }
+      <li>New jobs, one-off costs, price changes and missing activity are unknown to this page.</li>
       <li>A planning aid, not financial advice or a live bank forecast.</li>
     </ul>
   </details>
