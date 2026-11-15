@@ -1,1 +1,18 @@
-<router-outlet/>
+<router-outlet />
+
+@if (updateReady() || recoveryRequired()) {
+  <section class="app-notice" role="status" aria-live="polite">
+    <span class="app-notice__mark" aria-hidden="true"></span>
+    <div class="min-w-0 flex-1">
+      <strong>{{ recoveryRequired() ? 'Refresh needed' : 'A new version is ready' }}</strong>
+      <p>{{ recoveryRequired() ? 'Reload to safely recover the app.' : 'Reload when you are ready. Your local data will stay here.' }}</p>
+    </div>
+    @if (!recoveryRequired()) { <button type="button" class="btn btn-ghost btn-sm rounded-full" (click)="updateReady.set(false)">Later</button> }
+    <button type="button" class="btn btn-primary btn-sm rounded-full" (click)="reloadForUpdate()">Reload</button>
+  </section>
+} @else if (!online()) {
+  <section class="app-notice app-notice--offline" role="status" aria-live="polite">
+    <span class="app-notice__mark" aria-hidden="true"></span>
+    <div><strong>You're offline</strong><p>Your saved money history remains on this device.</p></div>
+  </section>
+}

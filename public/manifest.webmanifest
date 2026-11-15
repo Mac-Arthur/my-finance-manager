@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "myAvailable",
+  "short_name": "myAvailable",
+  "description": "A private, statement-based money review app for Ghana.",
+  "lang": "en-GH",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ebe6dc",
+  "theme_color": "#f4c93b",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

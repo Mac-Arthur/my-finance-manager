@@ -49,6 +49,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
 - Password-protected PDFs: `PasswordRequiredError` sets `passwordRequest`, the Statements page shows the unlock dialog, then `unlock(id, password)` runs. The password is passed straight to pdf.js and dropped.
 - Encrypted backup lives in `src/services/backup/backup.ts`. It serializes statement Blobs plus the allow-listed local settings, derives an AES-256-GCM key with PBKDF2-SHA-256 (310,000 iterations), and validates the full decrypted payload before replacing data. Backup passwords are never stored. Restore rolls back if applying local settings fails.
 - Public trust routes live at `/help`, `/privacy` and `/terms`. The Help page is the source of truth for user-facing format support and troubleshooting. Keep unsupported providers explicit, never ask users to attach statements to a public support report, and keep `environment.appVersion` aligned with `package.json`.
+- Production builds generate Angular's service worker from `ngsw-config.json`. The application shell is prefetched; statement tools cache after use. Update notices reload the whole page only after `VERSION_READY` to avoid mixing old and new lazy chunks. Cloudflare Pages headers and SPA behavior live in `public/_headers`, `public/_redirects` and `wrangler.jsonc`.
 
 ## Statement pipeline: rules learned the hard way
 
