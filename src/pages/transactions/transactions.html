@@ -88,6 +88,15 @@
       <p class="mt-1 text-xs text-base-content/50">Try another search or clear a filter.</p>
     </div>
   }
+
+  @if (hasMore()) {
+    <div class="load-more mt-5">
+      <p>Showing {{ visibleTransactions().length }} of {{ filtered().length }}</p>
+      <button type="button" class="btn btn-ghost rounded-full border border-base-content/10" (click)="showMore()">
+        Show {{ Math.min(50, filtered().length - visibleTransactions().length) }} more
+      </button>
+    </div>
+  }
 </section>
 
 @if (filterOpen()) {

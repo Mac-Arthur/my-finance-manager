@@ -49,6 +49,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
 - Password-protected PDFs: `PasswordRequiredError` sets `passwordRequest`, the Statements page shows the unlock dialog, then `unlock(id, password)` runs. The password is passed straight to pdf.js and dropped.
 - Encrypted backup lives in `src/services/backup/backup.ts`. It serializes statement Blobs plus the allow-listed local settings, derives an AES-256-GCM key with PBKDF2-SHA-256 (310,000 iterations), and validates the full decrypted payload before replacing data. Backup passwords are never stored. Restore rolls back if applying local settings fails.
 - Public trust routes live at `/help`, `/privacy` and `/terms`. The Help page is the source of truth for user-facing format support and troubleshooting. Keep unsupported providers explicit, never ask users to attach statements to a public support report, and keep `environment.appVersion` aligned with `package.json`.
+- `landing-page/` is a standalone, no-build marketing site for Netlify. Keep its app links aligned with the production URL and preserve the on-device/privacy claims made by the application.
 - Production builds generate Angular's service worker from `ngsw-config.json`. The application shell is prefetched; statement tools cache after use. Update notices reload the whole page only after `VERSION_READY` to avoid mixing old and new lazy chunks. Cloudflare security/cache headers live in `public/_headers`; SPA fallback is configured only in `wrangler.jsonc`. Do not add a catch-all `_redirects` rewrite alongside Wrangler's `single-page-application` handling—it creates an `/index.html` loop during Workers deployment.
 
 ## Statement pipeline: rules learned the hard way
@@ -114,6 +115,7 @@ The look follows a reference design: **soft, warm, glassy, rounded, calm**. Ligh
   - set `role="dialog"` with `aria-modal` on overlays.
 - The `prefers-reduced-transparency` and `prefers-contrast` media queries already swap glass for solid surfaces. Keep new glass on the shared tokens so this keeps working.
 - **Charts** (`src/components/charts/`) are hand-built SVG components. Long ranges group automatically (daily ≤45 days, weekly ≤120, monthly beyond).
+- **Transactions** render progressively in groups of 50. Search, filters, counts and totals always cover the full result; “Show more” only limits DOM rows so large statements stay responsive.
 - **Copy:** short and friendly, in plain words a non-finance person understands. Say what happened and what to do next. Show real numbers from the user's data, never invented sample figures.
 
 ## Verifying changes

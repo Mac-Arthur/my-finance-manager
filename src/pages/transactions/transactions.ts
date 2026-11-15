@@ -1,6 +1,6 @@
 import { EmptyState } from '../../components/empty-state/empty-state';
 import { DatePipe } from '@angular/common';
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { CATEGORIES } from '../../data/categories';
 import { CategoryId, Transaction } from '../../models/finance';
 import { Finance } from '../../services/finance/finance';
@@ -15,8 +15,10 @@ import { MoneyPipe } from '../../shared/money';
   styleUrl: './transactions.css',
 })
 export class Transactions {
+  private readonly pageSize = 50;
   protected readonly f = inject(Finance);
   protected readonly icons = ICONS;
+  protected readonly Math = Math;
 
   protected readonly query = signal('');
   protected readonly direction = signal<'all' | 'in' | 'out'>('all');
@@ -27,6 +29,7 @@ export class Transactions {
   protected readonly selectedTransactionId = signal<string | null>(null);
   protected readonly editorCategory = signal<CategoryId | null>(null);
   protected readonly teachSimilar = signal(false);
+  protected readonly visibleLimit = signal(this.pageSize);
 
   protected readonly selectedTransaction = computed(() => {
     const id = this.selectedTransactionId();
@@ -90,19 +93,40 @@ export class Transactions {
     );
   });
 
+  protected readonly visibleTransactions = computed(() => this.filtered().slice(0, this.visibleLimit()));
+  protected readonly hasMore = computed(() => this.visibleTransactions().length < this.filtered().length);
+
   protected readonly groups = computed(() => {
+    const dayTotals = new Map<string, number>();
+    for (const transaction of this.filtered()) {
+      const key = transaction.date.toDateString();
+      dayTotals.set(key, (dayTotals.get(key) ?? 0) + transaction.amount);
+    }
     const map = new Map<string, { date: Date; items: Transaction[]; net: number }>();
-    for (const t of this.filtered()) {
+    for (const t of this.visibleTransactions()) {
       const key = t.date.toDateString();
-      const g = map.get(key) ?? { date: t.date, items: [], net: 0 };
+      const g = map.get(key) ?? { date: t.date, items: [], net: dayTotals.get(key) ?? 0 };
       g.items.push(t);
-      g.net += t.amount;
       map.set(key, g);
     }
     return [...map.values()];
   });
 
   protected readonly totalShown = computed(() => this.filtered().reduce((a, t) => a + t.amount, 0));
+
+  constructor() {
+    effect(() => {
+      this.query();
+      this.direction();
+      this.category();
+      this.f.accountSelection();
+      this.visibleLimit.set(this.pageSize);
+    });
+  }
+
+  protected showMore() {
+    this.visibleLimit.update(limit => limit + this.pageSize);
+  }
 
   protected openFilters() {
     this.draftDirection.set(this.direction());
