@@ -29,4 +29,9 @@ describe('Reviewed ledger', () => {
     expect(rows).toHaveLength(2);
     expect(new Set(rows.map(row => row.account))).toEqual(new Set(['My wallet', 'My bank ••1234']));
   });
+  it('rejects a different currency under an existing account label', () => {
+    const cedi = { id: 'cedi', draft: draft('date,name,amount,currency\n2026-11-01,Food,-10,GHS') };
+    const dollar = draft('date,name,amount,currency\n2026-11-02,Coffee,-4,USD');
+    expect(() => assertCompatible(dollar, [cedi])).toThrow(/already recorded in GHS/);
+  });
 });

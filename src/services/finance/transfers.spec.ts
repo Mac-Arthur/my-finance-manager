@@ -2,7 +2,7 @@ import { CategoryId, Transaction } from '../../models/finance';
 import { findTransferCandidates } from './transfers';
 
 function transaction(id: string, account: string, amount: number, date: string, category: CategoryId): Transaction {
-  return { id, accountKey: account.toLowerCase(), account, amount, date: new Date(date), category,
+  return { id, accountKey: account.toLowerCase(), account, currency: 'GHS', amount, date: new Date(date), category,
     type: 'Imported', name: 'Transfer', fee: 0, balance: null, reference: '', channel: 'momo' };
 }
 
@@ -32,5 +32,11 @@ describe('Cross-account transfer matching', () => {
       transaction('late-in', 'MoMo', 50, '2026-11-05T10:00:01', 'from-bank'),
     ];
     expect(findTransferCandidates(rows)).toEqual([]);
+  });
+
+  it('never matches equal amounts in different currencies', () => {
+    const outgoing = transaction('out', 'Ghana wallet', -100, '2026-11-01T10:00:00', 'own-accounts');
+    const incoming = { ...transaction('in', 'US account', 100, '2026-11-01T10:01:00', 'from-bank'), currency: 'USD' as const };
+    expect(findTransferCandidates([outgoing, incoming])).toEqual([]);
   });
 });

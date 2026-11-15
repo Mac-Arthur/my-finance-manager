@@ -51,7 +51,7 @@
         }
         @case ('sorting') { @if (summary(); as s) { Spotting bets, airtime, food and your own transfers<br />across {{ s.categories.length }} categories } }
         @case ('building') {
-          @if (summary(); as s) { Money in <b class="text-success" [countUp]="s.moneyIn" [countUpDuration]="1100"></b> · Money out <b class="text-error" [countUp]="s.moneyOut" [countUpDuration]="1100"></b> }
+          @if (summary(); as s) { Money in <b class="text-success" [countUp]="s.moneyIn" [countUpCurrency]="s.currency" [countUpDuration]="1100"></b> · Money out <b class="text-error" [countUp]="s.moneyOut" [countUpCurrency]="s.currency" [countUpDuration]="1100"></b> }
         }
         @case ('done') { Opening your dashboard… }
       }

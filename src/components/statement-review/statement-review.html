@@ -2,17 +2,24 @@
   <div class="flex flex-wrap items-center justify-between gap-3"><div><span class="chip bg-primary/15">Local analysis · review required</span><h2 id="review-title" class="mt-3 text-xl font-semibold">Check your statement</h2><p class="mt-2 text-sm text-base-content/65">Only confirmed records will change your dashboard. Compare these rows with your original file.</p></div><button type="button" class="btn btn-ghost btn-sm rounded-full" [disabled]="busy()" (click)="close.emit()">Close review</button></div>
   <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
     <div class="tile"><p class="text-xs text-base-content/60">Transactions</p><p class="mt-1 font-semibold">{{ edited().rows.length }}</p></div>
-    <div class="tile"><p class="text-xs text-base-content/60">Money in</p><p class="mt-1 font-semibold">{{ incoming() | money }}</p></div>
-    <div class="tile"><p class="text-xs text-base-content/60">Money out</p><p class="mt-1 font-semibold">{{ outgoing() | money }}</p></div>
-    <div class="tile"><p class="text-xs text-base-content/60">Fees</p><p class="mt-1 font-semibold">{{ fees() | money }}</p></div>
+    <div class="tile"><p class="text-xs text-base-content/60">Money in</p><p class="mt-1 font-semibold">{{ incoming() | money: 'full' : false : edited().currency }}</p></div>
+    <div class="tile"><p class="text-xs text-base-content/60">Money out</p><p class="mt-1 font-semibold">{{ outgoing() | money: 'full' : false : edited().currency }}</p></div>
+    <div class="tile"><p class="text-xs text-base-content/60">Fees</p><p class="mt-1 font-semibold">{{ fees() | money: 'full' : false : edited().currency }}</p></div>
   </div>
   <ul class="mt-5 list-disc space-y-1 pl-5 text-xs leading-relaxed text-base-content/70">@for (warning of edited().warnings; track $index) { <li>{{ warning }}</li> }</ul>
-  <label class="mt-5 block max-w-sm text-sm font-medium">Account label
-    <input class="input mt-2 w-full rounded-xl" placeholder="e.g. My MTN wallet" maxlength="80" [value]="edited().account" (input)="account($any($event.target).value)" [disabled]="busy()" />
-  </label>
-  <p class="mt-2 text-xs text-base-content/65">Use the same label for every statement from this wallet. This prototype supports one wallet at a time.</p>
+  <div class="mt-5 grid max-w-xl gap-3 sm:grid-cols-[1fr_auto]">
+    <label class="block text-sm font-medium">Account label
+      <input class="input mt-2 w-full rounded-xl" placeholder="e.g. My MTN wallet" maxlength="80" [value]="edited().account" (input)="account($any($event.target).value)" [disabled]="busy()" />
+    </label>
+    <label class="block text-sm font-medium">Currency
+      <select class="select mt-2 w-full rounded-xl" [value]="edited().currency" (change)="currency($any($event.target).value)" [disabled]="busy()">
+        @for (currency of currencies; track currency) { <option [value]="currency">{{ currency }}</option> }
+      </select>
+    </label>
+  </div>
+  <p class="mt-2 text-xs text-base-content/65">Confirm the detected currency before importing. Use the same label for statements from this account; use a different label for an account in another currency.</p>
   <div class="review-table mt-5 overflow-x-auto rounded-xl border border-base-content/10" tabindex="0" aria-label="Editable transaction rows">
-    <table class="table table-sm"><thead><tr><th>Source row</th><th>Date &amp; time</th><th>Description</th><th>Amount (GHS)</th><th>Fee</th><th>Balance</th><th>Category</th><th>Transaction ID</th></tr></thead>
+    <table class="table table-sm"><thead><tr><th>Source row</th><th>Date &amp; time</th><th>Description</th><th>Amount ({{ edited().currency }})</th><th>Fee</th><th>Balance</th><th>Category</th><th>Transaction ID</th></tr></thead>
       <tbody>@for (row of visibleRows(); track row.sourceRow; let i = $index) {
         <tr><td>{{ row.sourceRow }}</td>
           <td><input type="datetime-local" step="1" class="input input-sm w-52" [value]="row.date" (change)="change(i, 'date', $any($event.target).value)" [attr.aria-label]="'Date for source row ' + row.sourceRow" [disabled]="busy()" /></td>

@@ -13,7 +13,7 @@ const minor = (value: number) => Math.round(Math.abs(value) * 100);
 export const transferKey = (outgoingId: string, incomingId: string) => JSON.stringify([outgoingId, incomingId]);
 
 function possible(outgoing: Transaction, incoming: Transaction) {
-  return outgoing.accountKey !== incoming.accountKey && minor(outgoing.amount) === minor(incoming.amount) &&
+  return outgoing.accountKey !== incoming.accountKey && outgoing.currency === incoming.currency && minor(outgoing.amount) === minor(incoming.amount) &&
     Math.abs(+outgoing.date - +incoming.date) <= WINDOW_MS;
 }
 

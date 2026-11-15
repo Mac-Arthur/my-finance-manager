@@ -5,7 +5,7 @@ import { validateDraft } from '../analysis/parse-statement';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { CATEGORIES } from '../../data/categories';
-import { CategoryId } from '../../models/finance';
+import { CategoryId, CurrencyCode } from '../../models/finance';
 
 export interface SavedStatement {
   id: string;
@@ -23,6 +23,7 @@ export type ImportOutcome = 'imported' | 'review' | 'error' | 'password';
 export type ImportStage = 'reading' | 'extracting' | 'sorting' | 'building' | 'done';
 export interface ImportSummary {
   count: number; from: string; to: string; moneyIn: number; moneyOut: number; balance: number | null;
+  currency: CurrencyCode;
   /** True when every running balance adds up, false when some don't, null when the file has no balances. */
   verified: boolean | null;
   categories: { id: CategoryId; label: string; count: number }[];
@@ -33,7 +34,7 @@ function summarise(draft: AnalysisDraft): ImportSummary {
   const counts = new Map<CategoryId, number>();
   for (const row of rows) counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
   return {
-    count: rows.length, from: rows[0].date, to: rows.at(-1)!.date,
+    count: rows.length, from: rows[0].date, to: rows.at(-1)!.date, currency: draft.currency,
     moneyIn: rows.filter(r => r.amountMinor > 0).reduce((sum, r) => sum + r.amountMinor, 0) / 100,
     moneyOut: -rows.filter(r => r.amountMinor < 0).reduce((sum, r) => sum + r.amountMinor, 0) / 100,
     balance: rows.at(-1)!.balanceMinor === null ? null : rows.at(-1)!.balanceMinor! / 100,
@@ -140,6 +141,7 @@ export class Statements {
     // A misread layout breaks the running balance on a large share of rows; a few breaks are provider quirks
     // (airtime bought on credit, same-minute entries). Above 5%, a person checks before anything is imported.
     if (draft.balanceCheck && draft.balanceCheck.breaks > Math.max(2, draft.rows.length * 0.05)) return { id, outcome: 'review' };
+    if (draft.warnings.some(warning => warning.startsWith('No currency label was found'))) return { id, outcome: 'review' };
     if (!draft.account.trim()) {
       // Without a detected wallet, only the very first import can safely get a default label.
       if (this.confirmed().length) return { id, outcome: 'review' };

@@ -101,7 +101,7 @@
             <span class="min-w-0 flex-1 text-left">
               <span class="block truncate text-sm font-medium">All accounts</span>
               <span class="block truncate text-[11px] text-base-content/45">
-                {{ finance.canViewAllAccounts() ? 'Combined overview' : 'Review possible transfers first' }}
+                {{ finance.allAccountsBlockedReason() }}
               </span>
             </span>
             @if (finance.viewingAllAccounts()) { <span class="account-option__check">✓</span> }
@@ -117,7 +117,7 @@
                 <span class="block truncate text-sm font-medium">{{ account.label }}</span>
                 <span class="block text-[11px] text-base-content/45">{{ account.transactionCount }} transactions</span>
               </span>
-              @if (account.availableBalance !== null) { <span class="text-xs font-semibold tabular-nums">{{ account.availableBalance | money: 'compact' }}</span> }
+              @if (account.availableBalance !== null) { <span class="text-xs font-semibold tabular-nums">{{ account.availableBalance | money: 'compact' : false : account.currency }}</span> }
               @if (finance.accountSelection() === account.key) { <span class="account-option__check">✓</span> }
             </button>
           }

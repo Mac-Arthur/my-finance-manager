@@ -1,5 +1,6 @@
 /** Where the money moved through. */
 export type Channel = 'momo' | 'other-network' | 'bank' | 'cash' | 'merchant' | 'airtime';
+export type CurrencyCode = 'GHS' | 'USD' | 'GBP' | 'EUR' | 'CAD' | 'AUD' | 'NGN' | 'KES' | 'ZAR';
 
 export type CategoryId =
   // Money out
@@ -36,6 +37,7 @@ export interface Transaction {
   accountKey: string;
   /** Friendly label detected from the statement, e.g. "MTN MoMo ••1234". */
   account: string;
+  currency: CurrencyCode;
   date: Date;
   /** Raw MoMo payment type, e.g. "MOMO USER", "OTHER NETWORKS". */
   type: string;
@@ -53,7 +55,7 @@ export interface Transaction {
 
 export interface StatementMeta {
   provider: string;
-  currency: 'GHS';
+  currency: CurrencyCode;
   from: Date;
   to: Date;
   availableBalance: number;

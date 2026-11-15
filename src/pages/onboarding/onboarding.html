@@ -17,7 +17,7 @@
           </label>
         }
       </fieldset>
-      <p class="mt-5 text-xs leading-relaxed text-base-content/60">We'll start with Ghana cedis (GHS) and a three-month view. Your profile and files stay in this browser; clearing site data removes them. This is local setup, not an online account.</p>
+      <p class="mt-5 text-xs leading-relaxed text-base-content/60">Your statement currency is detected during import; files without a currency marker default to GHS for review. Your profile and files stay in this browser; clearing site data removes them. This is local setup, not an online account.</p>
       @if (error()) { <p class="mt-4 text-sm text-error" role="alert">{{ error() }}</p> }
       <button class="btn btn-primary mt-6 w-full rounded-full" type="submit" [disabled]="busy() || !name.trim()">@if (busy()) { <span class="loading loading-spinner loading-xs" aria-hidden="true"></span> Setting up your space… } @else { Continue to statements <app-icon [path]="icons.chevron" class="size-4" /> }</button>
     </form>

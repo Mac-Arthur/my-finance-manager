@@ -76,6 +76,21 @@ describe('Finance without demo data', () => {
     expect(finance.statement.availableBalance).toBe(1500);
   });
 
+  it('keeps unlike currencies out of the combined account view', () => {
+    const cedi = parseCsv('date,name,amount,balance,currency\n2026-11-01,Wallet purchase,-10,90,GHS');
+    cedi.account = 'Ghana wallet';
+    const dollar = parseCsv('date,name,amount,balance,currency\n2026-11-02,Coffee,-5,95,USD');
+    dollar.account = 'US account';
+    TestBed.inject(Statements).items.set([
+      { id: 'cedi', name: 'cedi.csv', kind: 'csv', size: 1, addedAt: '2026-11-01', status: 'confirmed', file: new Blob(), draft: cedi },
+      { id: 'dollar', name: 'dollar.csv', kind: 'csv', size: 1, addedAt: '2026-11-02', status: 'confirmed', file: new Blob(), draft: dollar },
+    ]);
+    expect(finance.hasMixedCurrencies()).toBe(true);
+    expect(finance.canViewAllAccounts()).toBe(false);
+    expect(finance.activeAccount()?.currency).toBe('USD');
+    expect(finance.moneyOut()).toBe(5);
+  });
+
   it('applies reversible one-off categories and teach-once counterparty rules', () => {
     const draft = parseCsv('date,name,amount,balance,id\n2026-11-01,Corner Shop,-10,90,A\n2026-11-02,Corner Shop,-20,70,B\n2026-11-03,Salary,100,170,C');
     draft.account = 'Test wallet';

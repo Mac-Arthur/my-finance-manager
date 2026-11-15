@@ -1,6 +1,6 @@
 # myAvailable — CLAUDE.md
 
-Personal finance app for Ghana. Users import MoMo (MTN, Telecel) and bank statements (PDF or CSV). The app reads them **on the device**, categorises every transaction and fills a dashboard. Money is GHS only.
+Ghana-first personal finance app with multi-currency statement support. Users import MoMo and bank statements (PDF or CSV). The app reads them **on the device**, categorises every transaction and fills a dashboard. GHS remains the default when a file has no currency marker; supported currencies are GHS, USD, GBP, EUR, CAD, AUD, NGN, KES and ZAR.
 
 **Product principles. Don't trade these away:**
 - **Privacy.** Statements and PDF passwords never leave the browser. No AI service and no backend yet. Never store a password, never log statement contents, never add analytics that send transaction data.
@@ -22,7 +22,7 @@ Run the build and the tests before calling anything done.
 - Angular 21: standalone components, **signals** (`signal`, `computed`, `linkedSignal`, `input`, `output`), new control flow (`@if`, `@for`, `@switch`). No NgModules, no RxJS for state.
 - Each routed page and component has separate `.ts`, `.html` and `.css` files. Component CSS budget: warning at 4 kB, error at 12 kB (`angular.json`).
 - Tailwind v4 (via `.postcssrc.json`) plus daisyUI 5. Two custom themes live in `src/styles.css`. Built-in daisyUI themes are disabled.
-- Money is stored as **integer pesewas** (`amountMinor`) in analysis drafts, and as cedis (`number`) in `Transaction`. Format money only with `MoneyPipe` / `formatMoney` (`src/shared/money.ts`) and animate numbers with the `CountUp` directive. Never hand-format "GH₵".
+- Money is stored as **integer minor units** (`amountMinor`) in analysis drafts, and as major units (`number`) in `Transaction`. Currency is stored on every draft, account and transaction. Format money only with `MoneyPipe` / `formatMoney` (`src/shared/money.ts`) and animate numbers with the `CountUp` directive. Never hand-format a currency symbol.
 - Icons: 24×24 stroke paths in `src/shared/icons.ts`, drawn with `<app-icon [path]="icons.x" class="size-4" />`. Category icons live in `src/data/categories.ts`.
 - Persistence: statements and confirmed drafts in IndexedDB (`mysika` database, `statements` store); the profile in `localStorage['mysika.profile.v1']`; the theme in `localStorage['theme']`; budgets, goals, transfer decisions and category corrections/rules in localStorage.
 - `src/environments/environment.ts` is public config (file limits: 25 MB, 400 pages). Never put secrets there.
@@ -64,7 +64,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
   Write a provider-specific parser (like `momo-pdf.ts`) only when the layout genuinely isn't a table.
 - **Wrapped text** is rebuilt by `rebuild()`. A single-token fragment as wide as the column's widest fragment is glued to the next one ("21538386000" + "01"). Banks wrap at spaces when they can.
 - **Safety:** an amount on a continuation line throws. Never relax that to "make a file work". Find the real cause instead.
-- **Dates:** `parseDate` accepts ISO, `DD/MM/YYYY`, named months (`12 JAN 26`, `3-Sept-2026`) and AM/PM. It rejects rollover dates. **Money:** `moneyMinor` accepts thousands separators, `(1.00)` and a `CR`/`DR` suffix, with at most 2 decimals.
+- **Dates:** `parseDate` accepts ISO, numeric dates, named months (`12 JAN 26`, `3-Sept-2026`) and AM/PM. USD numeric dates use month/day/year; other currencies use day/month/year. It rejects rollover dates. **Money:** `moneyMinor` accepts supported currency codes/symbols, thousands separators, `(1.00)` and a `CR`/`DR` suffix, with at most 2 decimals.
 - **Running balance is the trust signal.** `checkBalances` tests each pair: new balance = previous balance + amount − fee, oldest-first or newest-first. Up to 5% broken is allowed, because real MoMo quirks exist (airtime bought on credit shows balance 0). Above that, the import goes to review. A correct bank import should have **0 breaks**, and its credit and debit totals should match the statement header to the pesewa.
 - **Same-date ties** (banks print no times) are ordered by statement order in `ledgerTransactions`, so "latest balance" equals the closing balance.
 - **Categorisation:** `categoryFor(name, detail, amount, owner)` in order:
@@ -78,7 +78,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
 - **User category corrections never rewrite the confirmed draft.** `category-corrections.ts` overlays an exact transaction correction first, then a same-counterparty/same-direction rule. Confirmed cross-account transfer matches win last. Removing an overlay restores the statement suggestion.
 - Rows with no narrative (month-end interest) become "Bank credit" or "Bank debit". Don't reject them.
 - Account label: MoMo gives `MTN MoMo ••1234`; banks give `<Bank> ••1234`, with the bank name from the `BANKS` list in `pdf-table.ts`.
-- **Multiple accounts can coexist.** `Transaction.accountKey` keeps provider IDs and balances scoped to their source account. `findTransferCandidates` pairs exact-value, nearby, cross-account rows only when both select each other as the nearest counterpart. Strong unique pairs are automatic; uncertain pairs require confirmation. "All accounts" unlocks after pending pairs are handled and sums each account's latest known balance.
+- **Multiple accounts can coexist.** `Transaction.accountKey` keeps provider IDs and balances scoped to their source account. `findTransferCandidates` pairs exact-value, same-currency, nearby, cross-account rows only when both select each other as the nearest counterpart. Strong unique pairs are automatic; uncertain pairs require confirmation. "All accounts" unlocks after pending pairs are handled and only when every account has the same currency. Never sum or match unlike currencies; there is no exchange-rate conversion.
 
 ## UI design system (read before any UI work)
 
@@ -129,7 +129,8 @@ The look follows a reference design: **soft, warm, glassy, rounded, calm**. Ligh
 
 1. Readers for Telecel Cash and AT Money, and validation against more real bank layouts (GCB, Ecobank, Fidelity…).
 2. OCR for scanned PDFs, and an optional, consented AI fallback whose output is checked by the running balance.
-3. Optional encrypted cross-device sync, an installable app (PWA), and monthly summaries.
-4. Insights: fee leak, loan churn, net betting, money sent to people, round trips.
+3. Validate US bank, Zelle and PayPal exports against real samples; CSV remains the fallback for unverified PDF layouts.
+4. Optional encrypted cross-device sync and provider-specific statement coverage.
+5. Insights: fee leak, loan churn, net betting, money sent to people, round trips.
 
 `README.md` and `docs/statement-analysis.md` predate the layout engine, password support and one-step import. Where they disagree, trust this file and the code, and update them when you touch those areas.

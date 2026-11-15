@@ -6,7 +6,7 @@ export interface PdfCell { text: string; x: number; y: number; w?: number; h?: n
 interface Column { field?: Field; x: number; right: number; }
 type Line = PdfCell[];
 
-const MONEY = /^\(?[+-]?(?:GHS|GH₵)?\s?\d{1,3}(?:,?\d{3})*(?:\.\d{1,2})?\)?(?:\s?(?:CR|DR))?$/i;
+const MONEY = /^\(?[+-]?(?:(?:GHS|USD|GBP|EUR|CAD|AUD|NGN|KES|ZAR|GH₵|[$€£₦])\s?)?\d{1,3}(?:,?\d{3})*(?:\.\d{1,2})?\)?(?:\s?(?:CR|DR))?$/i;
 const MONEY_FIELDS: (Field | undefined)[] = ['amount', 'debit', 'credit', 'balance', 'fee', 'tax'];
 const SUMMARY = /^(?:total|sub ?total|opening|closing|balance (?:b\/f|c\/f|brought|carried)|brought forward|carried forward|page \d)/i;
 const BANKS: [RegExp, string][] = [
@@ -15,9 +15,11 @@ const BANKS: [RegExp, string][] = [
   [/\bUBA\b|united bank for africa/i, 'UBA'], [/republic bank/i, 'Republic Bank'], [/prudential/i, 'Prudential'], [/societe generale/i, 'SG'],
   [/agricultural development|\bADB\b/i, 'ADB'], [/\bNIB\b|national investment bank/i, 'NIB'], [/\bFNB\b|first national bank/i, 'FNB'],
   [/omnibsic/i, 'OmniBSIC'], [/standard chartered/i, 'StanChart'], [/first atlantic/i, 'First Atlantic'], [/bank of africa/i, 'Bank of Africa'],
+  [/jpmorgan|chase/i, 'Chase'], [/bank of america/i, 'Bank of America'], [/wells fargo/i, 'Wells Fargo'], [/citibank|\bciti\b/i, 'Citi'],
+  [/capital one/i, 'Capital One'], [/\bPNC\b/i, 'PNC'], [/\bu\.s\. bank\b|\bus bank\b/i, 'US Bank'],
 ];
 
-const isDate = (text: string) => { try { parseDate(text); return true; } catch { return false; } };
+const isDate = (text: string, order: 'day-first' | 'month-first') => { try { parseDate(text, order); return true; } catch { return false; } };
 const height = (line: Line) => Math.max(...line.map(c => c.h ?? 10));
 
 function lines(page: PdfCell[]): Line[] {
@@ -102,7 +104,8 @@ function meta(pages: PdfCell[][], text: string): StatementMeta {
   const owner = value(/^(?:account|customer) name\s*:?\s*(.*)$/i);
   const number = value(/^(?:account (?:no\.?|number)|a\/c (?:no\.?|number)|acct\.? no\.?)\s*:?\s*(.*)$/i).replace(/\D/g, '');
   const bank = BANKS.find(([pattern]) => pattern.test(text))?.[1] ?? 'Bank';
-  return { owner: owner || undefined, account: number.length >= 4 ? `${bank} ••${number.slice(-4)}` : undefined };
+  const currency = /\bUSD\b|\$/.test(text) ? 'USD' : /\bGBP\b|£/.test(text) ? 'GBP' : /\bEUR\b|€/.test(text) ? 'EUR' : /\bGHS\b|GH₵/i.test(text) ? 'GHS' : undefined;
+  return { owner: owner || undefined, account: number.length >= 4 ? `${bank} ••${number.slice(-4)}` : undefined, currency };
 }
 
 /**
@@ -115,6 +118,8 @@ export function pdfTable(pages: PdfCell[][]): { table: string[][]; text: string;
   if (momo) return momo;
   const table: string[][] = [];
   const source: string[] = [];
+  const rawText = pages.flat().map(cell => cell.text).join(' ');
+  const dateOrder = /\bUSD\b|\$/.test(rawText) ? 'month-first' : 'day-first';
   let fields: Field[] = [];
   let current: string[][] | null = null; // per field, the text fragments of each wrapped line
   const records: string[][][] = [];
@@ -140,19 +145,19 @@ export function pdfTable(pages: PdfCell[][]): { table: string[][]; text: string;
       }
       if (!columns.length) {
         // A dated numeric row before any header could be a transaction we can't place.
-        if (line.some(c => isDate(c.text)) && line.filter(c => MONEY.test(c.text) && /\.\d{2}\b/.test(c.text)).length >= 2) throw new Error('Dated amounts appear outside a recognised PDF table. Export a CSV to avoid missing transactions.');
+        if (line.some(c => isDate(c.text, dateOrder)) && line.filter(c => MONEY.test(c.text) && /\.\d{2}\b/.test(c.text)).length >= 2) throw new Error('Dated amounts appear outside a recognised PDF table. Export a CSV to avoid missing transactions.');
         continue;
       }
       const values = columns.map(() => '');
       for (const cell of line) { const i = columnFor(cell, columns); values[i] = [values[i], cell.text].filter(Boolean).join(' '); }
       const dateText = values[columns.findIndex(c => c.field === 'date')];
       if (!open) {
-        if (!dateText || !isDate(dateText)) continue;
+        if (!dateText || !isDate(dateText, dateOrder)) continue;
         open = true; current = null;
       }
       const describedAs = values[columns.findIndex(c => c.field === 'name')] ?? '';
       const gap = lastY - line[0].y;
-      if (dateText && isDate(dateText)) {
+      if (dateText && isDate(dateText, dateOrder)) {
         if (SUMMARY.test(describedAs)) { current = null; lastY = line[0].y; continue; } // "Balance B/F" style rows
         current = fields.map(() => []);
         values.forEach((v, i) => { const at = slot(columns[i]); if (v && at >= 0) current![at].push(v); });
@@ -178,7 +183,7 @@ export function pdfTable(pages: PdfCell[][]): { table: string[][]; text: string;
     }
     // Pages of transactions without a header we recognise must not be skipped silently.
     // A cover page with a period ("01-01-2026 To 13-11-2026") is fine; timestamps or many dates are not.
-    const dates = page.filter(c => isDate(c.text) || /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(c.text));
+    const dates = page.filter(c => isDate(c.text, dateOrder) || /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(c.text));
     if (!headerOnPage && records.length === rowsBefore && (dates.length >= 3 || dates.some(c => /\d{1,2}:\d{2}/.test(c.text)))) {
       throw new Error('A PDF page contains rows without recognised headers. Export a CSV to avoid an incomplete import.');
     }

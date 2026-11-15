@@ -31,19 +31,18 @@ export const routes: Routes = [
       },
       {
         path: 'budgets',
-        title: 'Budgets · myAvailable',
-        loadComponent: () => import('../pages/budgets/budgets').then((m) => m.Budgets),
+        redirectTo: 'reports',
+        pathMatch: 'full',
       },
       {
         path: 'reports',
-        title: 'Reports · myAvailable',
+        title: 'Monthly review · myAvailable',
         loadComponent: () => import('../pages/reports/reports').then((m) => m.Reports),
       },
       {
         path: 'notifications',
-        title: 'Notifications · myAvailable',
-        loadComponent: () =>
-          import('../pages/notifications/notifications').then((m) => m.Notifications),
+        redirectTo: 'home',
+        pathMatch: 'full',
       },
       {
         path: 'profile',

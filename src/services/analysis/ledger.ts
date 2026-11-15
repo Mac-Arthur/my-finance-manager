@@ -10,6 +10,7 @@ const signature = (row: AnalysisRow) => JSON.stringify([row.date, row.amountMino
 export function assertCompatible(draft: AnalysisDraft, imports: ConfirmedImport[]) {
   const dates = draft.rows.map(row => row.date.slice(0, 10)).sort();
   for (const previous of imports.filter(item => accountKey(item.draft.account) === accountKey(draft.account))) {
+    if (previous.draft.currency !== draft.currency) throw new Error(`This account is already recorded in ${previous.draft.currency}. Use a separate account label for the ${draft.currency} statement.`);
     const oldDates = previous.draft.rows.map(row => row.date.slice(0, 10)).sort();
     if (dates[0] <= oldDates.at(-1)! && dates.at(-1)! >= oldDates[0]) {
       if ([...draft.rows, ...previous.draft.rows].some(row => !row.providerId)) throw new Error('This account already has transactions in these dates. Overlapping files require transaction IDs to avoid double-counting. Use non-overlapping files or a CSV with transaction IDs.');
@@ -36,6 +37,7 @@ export function ledgerTransactions(imports: ConfirmedImport[]): Transaction[] {
       order.set(id, ascending ? row.sourceRow : -row.sourceRow);
       entries.set(id, {
         id, accountKey: accountKey(item.draft.account), account: item.draft.account,
+        currency: item.draft.currency,
         date: new Date(row.date), type: 'Imported', name: row.name,
         amount: row.amountMinor / 100, fee: row.feeMinor / 100, balance: row.balanceMinor === null ? null : row.balanceMinor / 100,
         reference: row.reference, category: row.category,

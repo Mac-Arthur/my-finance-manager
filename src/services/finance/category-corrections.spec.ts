@@ -2,7 +2,7 @@ import { Transaction } from '../../models/finance';
 import { applyCategoryCorrections, categoryRuleKey, counterpartyKey } from './category-corrections';
 
 const transaction = (id: string, name: string, amount: number): Transaction => ({
-  id, name, amount, account: 'Wallet', accountKey: 'wallet', date: new Date('2026-11-01'), type: 'Imported',
+  id, name, amount, account: 'Wallet', accountKey: 'wallet', currency: 'GHS', date: new Date('2026-11-01'), type: 'Imported',
   fee: 0, balance: null, reference: '', channel: 'momo', category: amount > 0 ? 'received' : 'transfers',
 });
 

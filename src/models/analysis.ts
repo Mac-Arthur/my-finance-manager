@@ -1,4 +1,4 @@
-import { CategoryId } from './finance';
+import { CategoryId, CurrencyCode } from './finance';
 
 export interface AnalysisRow {
   sourceRow: number;
@@ -15,7 +15,7 @@ export interface AnalysisDraft {
   version: 1;
   mode: 'local';
   account: string;
-  currency: 'GHS';
+  currency: CurrencyCode;
   rows: AnalysisRow[];
   warnings: string[];
   extractedText: string;

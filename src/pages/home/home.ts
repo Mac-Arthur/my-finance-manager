@@ -163,11 +163,6 @@ export class Home implements OnDestroy {
     this.f.transactions().slice(0, 5).map((t) => ({ ...t, cat: CATEGORIES[t.category] })),
   );
 
-  protected readonly goalRatio = computed(() => {
-    const g = this.f.goal();
-    return g.target ? g.saved / g.target : 0;
-  });
-
   /** Biggest ratio for the rings so they're comparable to each other. */
   protected readonly flowMax = computed(() =>
     Math.max(this.f.moneyIn(), this.f.moneyOut() + this.f.fees(), 1),

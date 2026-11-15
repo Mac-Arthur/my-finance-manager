@@ -1,5 +1,6 @@
 import { Directive, ElementRef, OnDestroy, effect, inject, input } from '@angular/core';
-import { MoneyFormat, formatMoney } from './money';
+import { CurrencyDisplay, MoneyFormat, formatMoney } from './money';
+import { CurrencyCode } from '../models/finance';
 
 /**
  * Animates a number from its previous value to the new one.
@@ -11,13 +12,19 @@ export class CountUp implements OnDestroy {
   readonly countUp = input.required<number>();
   readonly countUpFormat = input<MoneyFormat | 'percent' | 'number'>('full');
   readonly countUpDuration = input(900);
+  readonly countUpCurrency = input<CurrencyCode | undefined>(undefined);
 
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly currency = inject(CurrencyDisplay);
   private current = 0;
   private frame = 0;
 
   constructor() {
-    effect(() => this.animateTo(this.countUp()));
+    effect(() => {
+      this.countUpCurrency();
+      this.currency.current();
+      this.animateTo(this.countUp());
+    });
   }
 
   private render(value: number) {
@@ -27,7 +34,7 @@ export class CountUp implements OnDestroy {
         ? `${Math.round(value)}%`
         : f === 'number'
           ? Math.round(value).toLocaleString('en-GH')
-          : formatMoney(value, f);
+        : formatMoney(value, f, false, this.countUpCurrency() ?? this.currency.current());
   }
 
   private animateTo(target: number) {

@@ -13,7 +13,7 @@
   </div>
   <a routerLink="/reports" class="btn btn-sm btn-ghost rounded-full border border-base-content/10 bg-base-100 shadow-sm">
     <app-icon [path]="icons.pie" class="size-4" />
-    Full statement report
+    Monthly review
   </a>
 </header>
 
@@ -63,12 +63,12 @@
         </span>
         {{ f.viewingAllAccounts() ? 'Combined imported balances' : 'Latest imported balance' }}
       </div>
-      <span class="chip feature-soft px-2.5 py-1">GHS</span>
+      <span class="chip feature-soft px-2.5 py-1">{{ f.currency() }}</span>
     </div>
 
     <div class="relative mt-6 flex items-center gap-3">
       @if (hideBalance()) {
-        <span class="text-4xl font-semibold tracking-tight">GH₵ ••••••</span>
+        <span class="text-4xl font-semibold tracking-tight">••••••</span>
       } @else {
         @if (f.statement.availableBalance !== null) {
           <span class="text-4xl font-semibold tracking-tight tabular-nums" [countUp]="f.statement.availableBalance!"></span>
@@ -109,8 +109,8 @@
         @for (a of [
           { label: 'Statements', icon: icons.history, link: '/statements' },
           { label: 'Import', icon: icons.upload, link: '/statements' },
-          { label: 'Budgets', icon: icons.pie, link: '/budgets' },
-          { label: 'Goal', icon: icons.goal, link: '/budgets' },
+          { label: 'Transactions', icon: icons.history, link: '/transactions' },
+          { label: 'Review', icon: icons.pie, link: '/reports' },
         ]; track a.label) {
           <a [routerLink]="a.link" class="group flex flex-col items-center gap-1.5 text-xs">
             <span

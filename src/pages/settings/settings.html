@@ -32,8 +32,8 @@
         <span class="profile-stat__label">Transactions</span>
       </div>
       <div class="profile-stat">
-        <span class="profile-stat__value">GHS</span>
-        <span class="profile-stat__label">Currency</span>
+        <span class="profile-stat__value">{{ finance.hasData() ? finance.currency() : '—' }}</span>
+        <span class="profile-stat__label">Selected currency</span>
       </div>
     </div>
   </section>
@@ -63,9 +63,9 @@
     <div class="setting-row mt-5">
       <div>
         <p class="text-sm font-medium">Currency</p>
-        <p class="mt-0.5 text-xs text-base-content/50">myAvailable currently works in Ghana cedis.</p>
+        <p class="mt-0.5 text-xs text-base-content/50">Detected from each statement. Accounts in different currencies stay separate.</p>
       </div>
-      <span class="chip border border-base-content/10 px-3 py-1 font-semibold">GHS</span>
+      <span class="chip border border-base-content/10 px-3 py-1 font-semibold">{{ finance.hasData() ? finance.currency() : 'Per file' }}</span>
     </div>
   </section>
 

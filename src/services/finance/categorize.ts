@@ -52,6 +52,7 @@ export function toTransaction(row: RawRow, index: number): Transaction {
     id: `${iso}-${index}`,
     accountKey: 'my wallet',
     account: 'My wallet',
+    currency: 'GHS',
     date: new Date(iso),
     type,
     name,

@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { AnalysisDraft, AnalysisRow } from '../../models/analysis';
+import { CurrencyCode } from '../../models/finance';
 import { CATEGORIES } from '../../data/categories';
 
 export type Field = 'date' | 'time' | 'name' | 'amount' | 'debit' | 'credit' | 'fee' | 'balance' | 'id' | 'reference' | 'currency' | 'type' | 'tax';
@@ -24,9 +25,11 @@ export function validHeaders(fields: (Field | undefined)[]) {
     (fields.includes('amount') || (fields.includes('credit') && fields.includes('debit')));
 }
 
-/** Monetary values are validated and stored as integer pesewas. No locale guessing. */
+/** Monetary values are validated and stored as integer minor units. No locale guessing. */
+export const SUPPORTED_CURRENCIES: CurrencyCode[] = ['GHS', 'USD', 'GBP', 'EUR', 'CAD', 'AUD', 'NGN', 'KES', 'ZAR'];
+
 export function moneyMinor(raw: string): number {
-  let value = raw.trim().replace(/^(GHS|GH₵)\s*/i, '');
+  let value = raw.trim().replace(/^(?:GHS|USD|GBP|EUR|CAD|AUD|NGN|KES|ZAR|GH₵|[$€£₦])\s*/i, '');
   // Bank style suffixes: "120.00 DR" is money out, "120.00 CR" money in.
   const suffix = /^(.*?)\s*(CR|DR)$/i.exec(value);
   if (suffix) value = (suffix[2].toUpperCase() === 'DR' ? '-' : '') + suffix[1].replace(/^[+-]/, '');
@@ -38,8 +41,8 @@ export function moneyMinor(raw: string): number {
 }
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-/** ISO, day-first numeric, or day-first named-month dates ("12 JAN 26", "12-Jan-2026"). Rollovers are rejected. */
-export function parseDate(raw: string): string {
+/** ISO, configured numeric order, or named-month dates ("12 JAN 26", "12-Jan-2026"). Rollovers are rejected. */
+export function parseDate(raw: string, order: 'day-first' | 'month-first' = 'day-first'): string {
   const value = raw.trim().replace(/\s+/g, ' ');
   const time = '(?:[T ](\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?: ?([AP]M))?)?';
   const iso = new RegExp(`^(\\d{4})-(\\d{2})-(\\d{2})${time}$`, 'i').exec(value);
@@ -47,10 +50,13 @@ export function parseDate(raw: string): string {
   const named = new RegExp(`^(\\d{1,2})[ -]([A-Za-z]{3,9})\\.?[ ,-]*(\\d{4}|\\d{2})${time}$`, 'i').exec(value);
   const word = named?.[2].toLowerCase() ?? '';
   const monthIndex = word.length >= 3 ? MONTHS.findIndex(name => name.startsWith(word)) : -1;
-  if (!iso && !dayFirst && monthIndex < 0) throw new Error(`Unsupported date: “${raw}”. Use YYYY-MM-DD, DD/MM/YYYY or 12 Jan 2026.`);
+  if (!iso && !dayFirst && monthIndex < 0) throw new Error(`Unsupported date: “${raw}”. Use YYYY-MM-DD, a supported numeric date, or 12 Jan 2026.`);
   const m = (iso ?? dayFirst ?? named)!;
   const y = named ? (named[3].length === 2 ? 2000 + Number(named[3]) : Number(named[3])) : Number(iso ? m[1] : m[3]);
-  const month = named ? monthIndex + 1 : Number(m[2]), day = Number(iso ? m[3] : m[1]);
+  const numericMonth = order === 'month-first' ? Number(m[1]) : Number(m[2]);
+  const numericDay = order === 'month-first' ? Number(m[2]) : Number(m[1]);
+  const month = named ? monthIndex + 1 : iso ? Number(m[2]) : numericMonth;
+  const day = named ? Number(m[1]) : iso ? Number(m[3]) : numericDay;
   let h = Number(m[4] || 0);
   const minute = Number(m[5] || 0), second = Number(m[6] || 0);
   if (m[7]) { if (h < 1 || h > 12) throw new Error(`Invalid time: “${raw}”.`); h = (h % 12) + (m[7].toUpperCase() === 'PM' ? 12 : 0); }
@@ -60,7 +66,30 @@ export function parseDate(raw: string): string {
 }
 
 /** Details about the statement owner, used to spot transfers between their own accounts. */
-export interface StatementMeta { owner?: string; account?: string; }
+export interface StatementMeta { owner?: string; account?: string; currency?: CurrencyCode; }
+
+function detectCurrency(table: string[][], fields: (Field | undefined)[], text: string, meta: StatementMeta): CurrencyCode {
+  const currencyColumn = fields.indexOf('currency');
+  const declared = new Set<string>();
+  if (currencyColumn >= 0) for (const row of table.slice(1)) {
+    const value = (row[currencyColumn] ?? '').trim().toUpperCase();
+    if (value) declared.add(value);
+  }
+  const moneyColumns = fields.map((field, index) => field && ['amount', 'debit', 'credit', 'fee', 'tax', 'balance'].includes(field) ? index : -1).filter(index => index >= 0);
+  for (const row of table.slice(1)) for (const index of moneyColumns) {
+    const marker = /^(GHS|USD|GBP|EUR|CAD|AUD|NGN|KES|ZAR|GH₵|[$€£₦])/i.exec((row[index] ?? '').trim())?.[1].toUpperCase();
+    if (!marker) continue;
+    declared.add(marker === 'GH₵' ? 'GHS' : marker === '$' ? 'USD' : marker === '€' ? 'EUR' : marker === '£' ? 'GBP' : marker === '₦' ? 'NGN' : marker);
+  }
+  if (meta.currency) declared.add(meta.currency);
+  if (!declared.size) {
+    declared.add('GHS');
+  }
+  const unsupported = [...declared].filter(code => !SUPPORTED_CURRENCIES.includes(code as CurrencyCode));
+  if (unsupported.length) throw new Error(`Unsupported currency: ${unsupported.join(', ')}.`);
+  if (declared.size !== 1) throw new Error('This file appears to mix currencies. Import one currency per account so totals stay accurate.');
+  return [...declared][0] as CurrencyCode;
+}
 
 const words = (value: string) => value.toUpperCase().replace(/[^A-Z\s,-]/g, ' ').replace(/-/g, '').split(/[\s,]+/).filter(w => w.length > 2);
 /** At least two of the owner's names (any order, hyphens ignored) means the counterparty is the owner. */
@@ -94,21 +123,22 @@ export function categoryFor(name: string, detail: string, amount: number, owner?
 }
 
 export function rowsToDraft(table: string[][], text: string, meta: StatementMeta = {}): AnalysisDraft {
-  if (/\b(?:USD|EUR|GBP|NGN|KES|ZAR)\b|[$€£]/i.test(text)) throw new Error('This file appears to contain another currency. Only GHS statements are supported.');
   const fields = table[0]?.map(fieldFor) ?? [];
   if (!validHeaders(fields)) throw new Error('Could not recognise the transaction columns. Use a CSV with date, name and signed amount, or debit and credit columns. No transactions were imported.');
   const present = fields.filter(Boolean);
   if (new Set(present).size !== present.length) throw new Error('Ambiguous duplicate column headers. Give each column a unique name.');
+  const currency = detectCurrency(table, fields, text, meta);
+  const dateOrder = currency === 'USD' ? 'month-first' : 'day-first';
   const warnings = ['Local analysis: categories are suggestions, not AI conclusions. Check every row against your statement.', 'Coverage is based on transaction dates, not a verified full statement period. Comparisons and averages may be incomplete.'];
   if (fields.includes('tax')) warnings.push('The fees total includes any separately listed transaction tax.');
   if (!fields.includes('fee')) warnings.push('No fee column was found. Fees default to zero; verify before confirming.');
   if (!fields.includes('balance')) warnings.push('No running balance was found. A current balance will not be inferred.');
-  if (table.slice(1).some(row => /^\d{2}[/-]\d{2}[/-]/.test(row[fields.indexOf('date')] || ''))) warnings.push('Dates with slashes are interpreted as day/month/year.');
+  if (table.slice(1).some(row => /^\d{1,2}[/-]\d{1,2}[/-]/.test(row[fields.indexOf('date')] || ''))) warnings.push(`Numeric dates are interpreted as ${dateOrder === 'month-first' ? 'month/day/year for USD' : 'day/month/year'}.`);
+  if (!fields.includes('currency') && !meta.currency && currency === 'GHS' && !/\bGHS\b|GH₵/i.test(text)) warnings.push('No currency label was found, so this import defaults to GHS. Confirm the account currency before importing.');
   const rows = table.slice(1).filter(row => row.some(c => c.trim())).map((cells, index): AnalysisRow => {
     const get = (field: Field) => (cells[fields.indexOf(field)] ?? '').trim();
     try {
       if (cells.length !== fields.length) throw new Error('Column count does not match the header.');
-      if (get('currency') && get('currency').toUpperCase() !== 'GHS') throw new Error('Only GHS statements are supported.');
       let amount: number;
       if (fields.includes('amount')) amount = moneyMinor(get('amount'));
       else {
@@ -126,7 +156,7 @@ export function rowsToDraft(table: string[][], text: string, meta: StatementMeta
       if (baseFee < 0 || tax < 0) throw new Error('Fees and tax must not be negative.');
       const fee = baseFee + tax;
       if (fee < 0) throw new Error('Fee must not be negative.');
-      return { sourceRow: index + 2, providerId: get('id'), date: parseDate([get('date'), get('time')].filter(Boolean).join(' ')), name,
+      return { sourceRow: index + 2, providerId: get('id'), date: parseDate([get('date'), get('time')].filter(Boolean).join(' '), dateOrder), name,
         amountMinor: amount, feeMinor: fee, balanceMinor: get('balance') && get('balance') !== '-' ? moneyMinor(get('balance')) : null,
         reference: get('reference'), category: categoryFor(name, [get('type'), get('reference')].join(' '), amount, meta.owner) };
     } catch (error) { throw new Error(`Row ${index + 2}: ${error instanceof Error ? error.message : 'Invalid row'}`); }
@@ -135,7 +165,7 @@ export function rowsToDraft(table: string[][], text: string, meta: StatementMeta
   if (balanceCheck) warnings.push(balanceCheck.breaks
     ? `${balanceCheck.breaks} of ${balanceCheck.checked + 1} rows don't follow the running balance. This can be a provider quirk (such as airtime on credit) or a misread row: compare them with the original.`
     : `Running balance verified across all ${balanceCheck.checked + 1} transactions.`);
-  const draft: AnalysisDraft = { version: 1, mode: 'local', account: meta.account ?? '', currency: 'GHS', rows, warnings, extractedText: text, balanceCheck };
+  const draft: AnalysisDraft = { version: 1, mode: 'local', account: meta.account ?? '', currency, rows, warnings, extractedText: text, balanceCheck };
   validateDraft(draft, false);
   return draft;
 }
@@ -163,7 +193,7 @@ export function parseCsv(text: string): AnalysisDraft {
 }
 
 export function validateDraft(draft: AnalysisDraft, requireAccount = true) {
-  if (draft.currency !== 'GHS' || draft.mode !== 'local' || draft.version !== 1) throw new Error('Unsupported analysis format.');
+  if (!SUPPORTED_CURRENCIES.includes(draft.currency) || draft.mode !== 'local' || draft.version !== 1) throw new Error('Unsupported analysis format.');
   if (requireAccount && (!draft.account.trim() || draft.account.trim().length > 80)) throw new Error('Enter an account label, such as “My MTN wallet”. Use the same label for future statements from this account.');
   if (!draft.rows.length || draft.rows.length > 10000) throw new Error('A statement must contain between 1 and 10,000 transactions.');
   const ids = new Set<string>();

@@ -2,9 +2,10 @@ import { Statements } from '../statements/statements';
 import { accountKey, ledgerTransactions } from '../analysis/ledger';
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { CATEGORIES, SPENDING_CATEGORIES } from '../../data/categories';
-import { Budget, CategoryId, Channel, Transaction } from '../../models/finance';
+import { Budget, CategoryId, Channel, CurrencyCode, Transaction } from '../../models/finance';
 import { findTransferCandidates } from './transfers';
 import { applyCategoryCorrections, CategoryCorrections, categoryRuleKey, ruleForTransaction, transactionDirection } from './category-corrections';
+import { CurrencyDisplay, formatMoney } from '../../shared/money';
 
 export interface CategoryTotal {
   id: CategoryId;
@@ -39,6 +40,7 @@ export interface FinanceAccount {
   transactionCount: number;
   latestActivity: Date;
   availableBalance: number | null;
+  currency: CurrencyCode;
 }
 
 const DAY = 86_400_000;
@@ -75,7 +77,7 @@ function sum(list: Transaction[], pick: (t: Transaction) => number = (t) => Math
 @Injectable({ providedIn: 'root' })
 export class Finance {
   private readonly store = inject(Statements);
-  readonly currency = 'GHS';
+  private readonly currencyDisplay = inject(CurrencyDisplay);
 
   private readonly rawTransactions = computed(() => ledgerTransactions(this.store.confirmed()));
   readonly categoryCorrections = signal<CategoryCorrections>(readJson(CORRECTIONS_KEY, { overrides: {}, rules: [] }));
@@ -178,16 +180,22 @@ export class Finance {
       transactionCount: rows.length,
       latestActivity: rows[0].date,
       availableBalance: rows.find(row => row.balance !== null)?.balance ?? null,
+      currency: rows[0].currency,
     })).sort((a, b) => +b.latestActivity - +a.latestActivity || a.label.localeCompare(b.label));
   });
   readonly selectedAccountKey = signal<string | null>(null);
-  readonly canViewAllAccounts = computed(() => this.accounts().length > 1 && this.pendingTransferCandidates().length === 0);
+  readonly hasMixedCurrencies = computed(() => new Set(this.accounts().map(account => account.currency)).size > 1);
+  readonly canViewAllAccounts = computed(() => this.accounts().length > 1 && !this.hasMixedCurrencies() && this.pendingTransferCandidates().length === 0);
   readonly viewingAllAccounts = computed(() => this.selectedAccountKey() === ALL_ACCOUNTS && this.canViewAllAccounts());
   readonly activeAccount = computed(() => {
     const accounts = this.accounts();
     if (this.viewingAllAccounts()) return null;
     return accounts.find(account => account.key === this.selectedAccountKey()) ?? accounts[0] ?? null;
   });
+  readonly currency = computed<CurrencyCode>(() => this.activeAccount()?.currency ?? this.accounts()[0]?.currency ?? 'GHS');
+  readonly allAccountsBlockedReason = computed(() => this.hasMixedCurrencies()
+    ? 'Different currencies stay separate'
+    : this.pendingTransferCandidates().length ? 'Review possible transfers first' : 'Combined overview');
   readonly accountSelection = computed(() => this.viewingAllAccounts() ? ALL_ACCOUNTS : this.activeAccount()?.key ?? '');
   readonly allAccountsKey = ALL_ACCOUNTS;
   selectAccount(key: string) {
@@ -224,7 +232,7 @@ export class Finance {
     const earliest = rows[rows.length - 1];
     const balances = this.accounts().map(account => account.availableBalance);
     const combinedBalance = balances.every((balance): balance is number => balance !== null) ? balances.reduce((total, balance) => total + balance, 0) : null;
-    return { provider: activeAccount?.label ?? 'All accounts', from: new Date(earliest.date.getFullYear(), earliest.date.getMonth(), earliest.date.getDate()), to: new Date(latest.date.getFullYear(), latest.date.getMonth(), latest.date.getDate()), availableBalance: activeAccount?.availableBalance ?? combinedBalance };
+    return { provider: activeAccount?.label ?? 'All accounts', currency: this.currency(), from: new Date(earliest.date.getFullYear(), earliest.date.getMonth(), earliest.date.getDate()), to: new Date(latest.date.getFullYear(), latest.date.getMonth(), latest.date.getDate()), availableBalance: activeAccount?.availableBalance ?? combinedBalance };
   });
   readonly hasData = computed(() => this.allTransactions().length > 0 && this.statementMeta() !== null);
   get statement() {
@@ -453,32 +461,33 @@ export class Finance {
       out.push({
         tone: 'critical',
         title: `${betting.count} bets in ${this.periodDays} days`,
-        body: `That's about GHS ${this.monthly(betting.total).toFixed(0)} a month at this rate (estimate).`,
+        body: `That's about ${formatMoney(this.monthly(betting.total), 'whole', false, this.currency())} a month at this rate (estimate).`,
       });
     }
     if (this.loansIn() > 0) {
       out.push({
         tone: 'warning',
         title: 'Borrowing and repayments',
-        body: `GHS ${this.loansIn().toFixed(0)} borrowed, GHS ${this.loanRepaid().toFixed(0)} repaid in this period.`,
+        body: `${formatMoney(this.loansIn(), 'whole', false, this.currency())} borrowed, ${formatMoney(this.loanRepaid(), 'whole', false, this.currency())} repaid in this period.`,
       });
     }
     out.push({
       tone: 'info',
-      title: `GHS ${this.allCharges().toFixed(2)} in fees and charges`,
+      title: `${formatMoney(this.allCharges(), 'full', false, this.currency())} in fees and charges`,
       body: `Across ${this.transactions().filter((t) => t.fee > 0).length + this.chargeRows().length} transactions. Review these charges in your transaction history.`,
     });
     if (this.ownTransfers().length) {
       out.push({
         tone: 'info',
         title: `${this.ownTransfers().length} own-account transfers`,
-        body: `GHS ${this.movedToOwn().toFixed(0)} moved between accounts you marked as your own.`,
+        body: `${formatMoney(this.movedToOwn(), 'whole', false, this.currency())} moved between accounts you marked as your own.`,
       });
     }
     return out;
   });
 
   constructor() {
+    effect(() => this.currencyDisplay.current.set(this.currency()));
     effect(() => { const value = JSON.stringify(this.budgets()); try { localStorage.setItem(BUDGETS_KEY, value); } catch { /* No persisted budgets when storage is unavailable. */ } });
     effect(() => { const value = JSON.stringify(this.goal()); try { localStorage.setItem(GOAL_KEY, value); } catch { /* No persisted goal when storage is unavailable. */ } });
     effect(() => { const value = JSON.stringify(this.transferDecisions()); try { localStorage.setItem(TRANSFERS_KEY, value); } catch { /* Decisions remain available for this session. */ } });

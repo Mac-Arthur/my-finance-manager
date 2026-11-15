@@ -67,12 +67,7 @@ export class Navbar {
       icon: 'M7 7h13l-3-3M17 17H4l3 3',
     },
     {
-      label: 'Budgets',
-      path: '/budgets',
-      icon: 'M3 7h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 7l2-3h14l2 3M16 13h2',
-    },
-    {
-      label: 'Reports',
+      label: 'Monthly review',
       path: '/reports',
       icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
     },

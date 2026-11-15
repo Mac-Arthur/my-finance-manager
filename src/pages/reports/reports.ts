@@ -1,6 +1,6 @@
 import { EmptyState } from '../../components/empty-state/empty-state';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
 import { AreaChart } from '../../components/charts/area-chart';
 import { Donut } from '../../components/charts/donut';
 import { SERIES, toSlices } from '../../components/charts/slices';
@@ -16,13 +16,59 @@ import { ICONS } from '../../shared/icons';
   templateUrl: './reports.html',
   styleUrl: './reports.css',
 })
-export class Reports {
+export class Reports implements OnDestroy {
   protected readonly f = inject(Finance);
   protected readonly icons = ICONS;
   protected readonly series = SERIES;
 
   protected readonly showAllCategories = signal(false);
   protected readonly activeSlice = signal<string | null>(null);
+  protected readonly month = signal('');
+  protected readonly monthOptions = computed(() => {
+    const account = this.f.activeAccount();
+    const months = new Set(this.f.allTransactions()
+      .filter(transaction => !account || transaction.accountKey === account.key)
+      .map(transaction => `${transaction.date.getFullYear()}-${String(transaction.date.getMonth() + 1).padStart(2, '0')}`));
+    return [...months].sort((a, b) => b.localeCompare(a)).map(value => {
+      const [year, index] = value.split('-').map(Number);
+      return { value, label: new Date(year, index - 1, 1).toLocaleDateString('en-GH', { month: 'long', year: 'numeric' }) };
+    });
+  });
+  protected readonly selectedMonth = computed(() => {
+    const options = this.monthOptions();
+    return options.some(option => option.value === this.month()) ? this.month() : options[0]?.value ?? '';
+  });
+  protected readonly reviewRange = computed(() => {
+    if (!this.selectedMonth()) return null;
+    const [year, month] = this.selectedMonth().split('-').map(Number);
+    return { from: new Date(year, month - 1, 1), to: new Date(year, month, 0, 23, 59, 59, 999) };
+  });
+  protected readonly comparison = computed(() => {
+    const selected = this.selectedMonth();
+    if (!selected) return null;
+    const [year, month] = selected.split('-').map(Number);
+    const previousDate = new Date(year, month - 2, 1);
+    const previousKey = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}`;
+    const account = this.f.activeAccount();
+    const previous = this.f.allTransactions().filter(transaction =>
+      (!account || transaction.accountKey === account.key) &&
+      `${transaction.date.getFullYear()}-${String(transaction.date.getMonth() + 1).padStart(2, '0')}` === previousKey &&
+      transaction.amount < 0 && transaction.category !== 'own-accounts');
+    if (!previous.length) return null;
+    const total = previous.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
+    const change = total ? (this.f.moneyOut() - total) / total : 0;
+    return { label: previousDate.toLocaleDateString('en-GH', { month: 'long' }), total, change, count: previous.length };
+  });
+
+  constructor() {
+    effect(() => this.f.selectedRange.set(this.reviewRange()));
+  }
+
+  ngOnDestroy() { this.f.selectedRange.set(null); }
+
+  protected selectMonth(value: string) {
+    if (this.monthOptions().some(option => option.value === value)) this.month.set(value);
+  }
 
   protected readonly categories = computed(() => {
     const all = this.f.spendingByCategory();
@@ -56,27 +102,6 @@ export class Reports {
 
   protected readonly maxRecipient = computed(() => this.f.topRecipients()[0]?.total ?? 1);
   protected readonly maxTime = computed(() => Math.max(1, ...this.f.timeOfDay().map((t) => t.value)));
-
-  // ---------- Savings analyser ----------
-  protected readonly picked = signal<Set<string>>(new Set(['betting', 'fees']));
-
-  protected toggle(id: string) {
-    this.picked.update((s) => {
-      const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  protected readonly monthlySaving = computed(() =>
-    this.f.savingsLevers().filter((l) => this.picked().has(l.id)).reduce((a, l) => a + l.perMonth, 0),
-  );
-
-  protected readonly monthsToGoal = computed(() => {
-    const g = this.f.goal();
-    const left = Math.max(0, g.target - g.saved);
-    return this.monthlySaving() > 0 ? Math.ceil(left / this.monthlySaving()) : null;
-  });
 
   // ---------- Loans ----------
   protected readonly loans = computed(() =>

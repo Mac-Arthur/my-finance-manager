@@ -24,11 +24,20 @@ describe('Statement parsing', () => {
       'date,name,amount\n2026-11-01,Food,abc',
       'date,name,amount\n2026-11-01,Food,1.234',
       'date,name,debit,credit\n2026-11-01,Food,10,20',
-      'date,name,amount,currency\n2026-11-01,Food,10,USD',
       'date,name,amount,id\n2026-11-01,Food,10,A\n2026-11-02,Food,10,A',
       'date,name,amount\n2026-11-01,Food,-1\n2026-11-02,Broken',
       'date,name,amount',
     ]) expect(() => parseCsv(text)).toThrow();
+  });
+  it('detects USD and interprets numeric US dates month-first', () => {
+    const draft = parseCsv('date,name,amount,currency\n11/13/2026,Coffee,$-4.25,USD');
+    expect(draft.currency).toBe('USD');
+    expect(draft.rows[0].date).toBe('2026-11-13T00:00:00');
+    expect(draft.rows[0].amountMinor).toBe(-425);
+    expect(draft.warnings.join()).toContain('month/day/year');
+  });
+  it('rejects a statement that mixes currencies', () => {
+    expect(() => parseCsv('date,name,amount,currency\n2026-11-01,Coffee,-4.25,USD\n2026-11-02,Food,-10,GHS')).toThrow(/mix currencies/);
   });
   it('rejects invalid dates and nonstandard money notation', () => {
     expect(parseDate('2024-02-29')).toBe('2024-02-29T00:00:00');

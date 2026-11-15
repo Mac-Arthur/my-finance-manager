@@ -3,19 +3,19 @@
 } @else {
 <header class="reveal mb-6 flex flex-wrap items-end justify-between gap-4">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Statement report</h1>
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Monthly review</h1>
     <p class="mt-1 text-sm text-base-content/60">
-      {{ f.statement.provider }} · {{ f.statement.from | date: 'd MMM' }} – {{ f.statement.to | date: 'd MMM y' }} ·
+      {{ f.statement.provider }} · {{ monthOptions()[0] && selectedMonth() ? (reviewRange()?.from | date: 'MMMM y') : '' }} ·
       {{ f.transactions().length }} transactions
     </p>
   </div>
-  <div class="tile flex items-center gap-3 py-2.5">
+  <label class="tile flex items-center gap-3 py-2.5 text-xs">
     <span class="icon-chip bg-primary/20 text-base-content"><app-icon [path]="icons.upload" class="size-4" /></span>
-    <div class="text-xs">
-      <p class="font-medium">Statement overview</p>
-      <p class="text-base-content/60">Based on reviewed transactions</p>
-    </div>
-  </div>
+    <span><strong class="block font-medium">Review month</strong><span class="text-base-content/60">Based on imported transactions</span></span>
+    <select class="select select-sm rounded-full" aria-label="Review month" [value]="selectedMonth()" (change)="selectMonth($any($event.target).value)">
+      @for (option of monthOptions(); track option.value) { <option [value]="option.value">{{ option.label }}</option> }
+    </select>
+  </label>
 </header>
 
 <!-- KPIs -->
@@ -149,40 +149,20 @@
     </ol>
   </section>
 
-  <!-- Savings analyser -->
+  <!-- Month comparison -->
   <section class="panel reveal relative overflow-hidden lg:col-span-6" style="--i: 11">
     <div class="pointer-events-none absolute -top-20 -right-16 size-56 rounded-full bg-primary/15 blur-3xl"></div>
     <div class="relative">
-      <p class="panel-title">Savings analyser</p>
-      <p class="text-xs text-base-content/50">Pick changes to see what they'd free up each month</p>
-
-      <ul class="mt-4 space-y-2">
-        @for (l of f.savingsLevers(); track l.id) {
-          <li>
-            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-base-content/5 px-3 py-2.5 transition-colors hover:bg-base-content/5"
-              [class]="picked().has(l.id) ? 'border-primary bg-primary/5' : ''">
-              <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" [checked]="picked().has(l.id)" (change)="toggle(l.id)" />
-              <span class="flex-1 text-sm">{{ l.label }}</span>
-              <span class="text-sm font-semibold text-success tabular-nums">+{{ l.perMonth | money: 'whole' }}</span>
-            </label>
-          </li>
-        }
-      </ul>
-
-      <div class="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-2xl bg-neutral p-4 text-neutral-content">
-        <div>
-          <p class="text-xs opacity-70">You could save</p>
-          <p class="text-2xl font-semibold tabular-nums"><span [countUp]="monthlySaving()" countUpFormat="whole" [countUpDuration]="500"></span><span class="text-sm font-normal opacity-70"> / month</span></p>
+      <p class="panel-title">Compared with the previous month</p>
+      <p class="text-xs text-base-content/50">A factual comparison of imported spending—not a forecast.</p>
+      @if (comparison(); as previous) {
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <div class="tile"><p class="text-xs text-base-content/50">{{ previous.label }} spending</p><p class="mt-1 text-xl font-semibold tabular-nums">{{ previous.total | money: 'whole' }}</p><p class="mt-1 text-xs text-base-content/45">{{ previous.count }} transactions</p></div>
+          <div class="tile"><p class="text-xs text-base-content/50">Change this month</p><p class="mt-1 text-xl font-semibold tabular-nums" [class.text-error]="previous.change > 0" [class.text-success]="previous.change < 0">{{ previous.change > 0 ? '+' : '' }}{{ previous.change * 100 | number: '1.0-0' }}%</p><p class="mt-1 text-xs text-base-content/45">Based only on imported coverage</p></div>
         </div>
-        <p class="text-right text-xs opacity-80">
-          @if (monthsToGoal(); as m) {
-            Reach “{{ f.goal().name }}” in<br />
-            <span class="text-lg font-semibold text-primary">{{ m }} month{{ m === 1 ? '' : 's' }}</span>
-          } @else {
-            Pick at least one change
-          }
-        </p>
-      </div>
+      } @else {
+        <div class="mt-5 rounded-2xl bg-base-content/5 p-4"><p class="text-sm font-medium">No previous-month data to compare</p><p class="mt-1 text-xs leading-relaxed text-base-content/55">Import a statement covering the month before this one for a trustworthy comparison.</p></div>
+      }
     </div>
   </section>
 

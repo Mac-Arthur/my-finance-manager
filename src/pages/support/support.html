@@ -6,8 +6,8 @@
     <section id="supported" class="scroll-mt-6" aria-labelledby="supported-title">
       <div class="mb-4"><p class="text-xs font-semibold uppercase tracking-widest text-base-content/45">Compatibility</p><h2 id="supported-title" class="mt-1 text-2xl font-semibold">Supported statements</h2></div>
       <div class="support-grid">
-        <article class="panel"><span class="icon-chip bg-success/10 text-success"><app-icon [path]="icons.check" class="size-5" /></span><h3>Works now</h3><ul><li>MTN MoMo searchable PDF statements</li><li>Searchable bank PDFs with a recognisable transaction table</li><li>CSV with date, description and amount—or debit and credit columns</li><li>Password-protected PDFs when you know the password</li><li>Ghana cedis (GHS), up to 25 MB and 400 PDF pages</li></ul></article>
-        <article class="panel"><span class="icon-chip bg-warning/10 text-warning"><app-icon [path]="icons.alert" class="size-5" /></span><h3>Needs another format</h3><ul><li>Scanned or photographed statements with no selectable text</li><li>PDF tables whose amount columns wrap or change layout</li><li>Other currencies</li><li>Provider layouts that cannot be reconciled safely</li><li>Telecel Cash and AT Money PDFs not yet validated with real samples</li></ul></article>
+        <article class="panel"><span class="icon-chip bg-success/10 text-success"><app-icon [path]="icons.check" class="size-5" /></span><h3>Works now</h3><ul><li>MTN MoMo searchable PDF statements</li><li>Searchable bank PDFs with a recognisable transaction table</li><li>CSV with date, description and amount—or debit and credit columns</li><li>Password-protected PDFs when you know the password</li><li>GHS, USD, GBP, EUR, CAD, AUD, NGN, KES and ZAR, up to 25 MB and 400 PDF pages</li></ul></article>
+        <article class="panel"><span class="icon-chip bg-warning/10 text-warning"><app-icon [path]="icons.alert" class="size-5" /></span><h3>Needs another format</h3><ul><li>Scanned or photographed statements with no selectable text</li><li>PDF tables whose amount columns wrap or change layout</li><li>Provider layouts that cannot be reconciled safely</li><li>Zelle and PayPal PDFs not yet validated with real samples—use their CSV export when possible</li><li>Telecel Cash and AT Money PDFs not yet validated with real samples</li></ul></article>
       </div>
       <div class="mt-4 flex flex-wrap gap-3"><a href="templates/statement.csv" download class="btn btn-neutral rounded-full">Download CSV template</a><a routerLink="/statements" class="btn btn-ghost rounded-full border border-base-content/10">Open Statements</a></div>
     </section>
@@ -19,6 +19,7 @@
         <details class="help-item"><summary>“Could not recognise the transaction columns”</summary><p>Use the CSV template above, or export a CSV containing a date, description and signed amount. Separate debit and credit columns also work.</p></details>
         <details class="help-item"><summary>The PDF asks for a password</summary><p>Use the password instructions from the email that delivered the statement. The password is used once in this browser and is never saved.</p></details>
         <details class="help-item"><summary>The running balances do not add up</summary><p>The app sends the file to review instead of silently trusting it. Check the extracted rows. If the source layout is unusual, use a CSV export.</p></details>
+        <details class="help-item"><summary>The currency or date order is wrong</summary><p>Check the review screen before confirming. USD numeric dates are read as month/day/year; other supported currencies use day/month/year. A file with no currency marker defaults to GHS and shows a warning.</p></details>
       </div>
     </section>
 

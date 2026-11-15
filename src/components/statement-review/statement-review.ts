@@ -3,7 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { AnalysisDraft, AnalysisRow } from '../../models/analysis';
 import { CATEGORIES } from '../../data/categories';
 import { MoneyPipe } from '../../shared/money';
-import { moneyMinor, parseDate, validateDraft } from '../../services/analysis/parse-statement';
+import { moneyMinor, parseDate, SUPPORTED_CURRENCIES, validateDraft } from '../../services/analysis/parse-statement';
+import { CurrencyCode } from '../../models/finance';
 
 @Component({ selector: 'app-statement-review', imports: [FormsModule, MoneyPipe], templateUrl: './statement-review.html', styleUrl: './statement-review.css' })
 export class StatementReview {
@@ -16,6 +17,7 @@ export class StatementReview {
   protected readonly fieldErrors = signal<Record<string, string>>({});
   protected readonly error = signal('');
   protected readonly categories = Object.values(CATEGORIES);
+  protected readonly currencies = SUPPORTED_CURRENCIES;
   protected readonly visibleRows = computed(() => this.edited().rows.slice(this.page() * 25, (this.page() + 1) * 25));
   protected readonly pages = computed(() => Math.ceil(this.edited().rows.length / 25));
   protected readonly incoming = computed(() => this.edited().rows.filter(r => r.amountMinor > 0).reduce((sum, r) => sum + r.amountMinor, 0) / 100);
@@ -24,6 +26,13 @@ export class StatementReview {
   protected readonly errors = computed(() => Object.values(this.fieldErrors()));
 
   protected account(value: string) { this.edited.update(draft => ({ ...draft, account: value })); }
+  protected currency(value: string) {
+    if (this.currencies.includes(value as CurrencyCode)) this.edited.update(draft => ({
+      ...draft,
+      currency: value as CurrencyCode,
+      warnings: draft.warnings.filter(warning => !warning.startsWith('No currency label was found')),
+    }));
+  }
   protected change(index: number, field: keyof AnalysisRow, value: string) {
     const rowIndex = this.page() * 25 + index;
     const key = `${rowIndex}:${field}`;
