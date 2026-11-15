@@ -9,10 +9,11 @@ import { CountUp } from '../../shared/count-up';
 import { Icon } from '../../shared/icon';
 import { MoneyPipe } from '../../shared/money';
 import { ICONS } from '../../shared/icons';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-reports',
-  imports: [EmptyState, DatePipe, DecimalPipe, MoneyPipe, CountUp, Icon, AreaChart, Donut],
+  imports: [EmptyState, DatePipe, DecimalPipe, RouterLink, MoneyPipe, CountUp, Icon, AreaChart, Donut],
   templateUrl: './reports.html',
   styleUrl: './reports.css',
 })
@@ -107,4 +108,15 @@ export class Reports implements OnDestroy {
   protected readonly loans = computed(() =>
     this.f.transactions().filter((t) => t.category === 'loan' || t.category === 'loan-repayment'),
   );
+  protected readonly monthHighlights = computed(() => {
+    const topCategory = this.f.spendingByCategory()[0];
+    const largest = this.f.largestOut();
+    const busiest = this.f.daily().reduce<{ date: Date; spent: number } | null>((best, day) => !best || day.spent > best.spent ? day : best, null);
+    return [
+      topCategory ? { icon: topCategory.icon, label: 'Largest spending category', value: topCategory.total, detail: `${topCategory.label} · ${topCategory.count} transactions` } : null,
+      largest ? { icon: this.icons.arrowOut, label: 'Biggest payment', value: Math.abs(largest.amount), detail: largest.name } : null,
+      busiest?.spent ? { icon: this.icons.calendar, label: 'Busiest spending day', value: busiest.spent, detail: busiest.date.toLocaleDateString('en-GH', { weekday: 'long', day: 'numeric', month: 'short' }) } : null,
+      { icon: this.icons.fee, label: 'Fees captured', value: this.f.allCharges(), detail: this.f.allCharges() ? 'Transaction fees and charge rows' : 'No fees or charges in this month' },
+    ].filter((item): item is NonNullable<typeof item> => item !== null);
+  });
 }

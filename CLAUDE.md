@@ -44,6 +44,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
 ```
 
 - `Finance` (root) derives everything (totals, categories, insights, ranges) from `Statements.confirmed()`. Pages read `Finance`. Never keep a separate copy of the data.
+- `/outlook` uses the pure local engine in `src/services/finance/projections.ts`. It builds explainable current/improve/higher-spend scenarios from an active account's imported history. It excludes internal transfers and loan inflows from the normal-income baseline, keeps currencies separate, and must always show coverage confidence and methodology. Never describe these scenarios as predictions, guarantees or financial advice.
 - `ImportLoader` (`src/components/import-loader/`) is the full-screen animation. Stages: reading → extracting → sorting → building → done. They are deliberately paced in `runImport` (`pause()` calls) and show real numbers from `importSummary`.
 - `StatementReview` only appears when something needs a person: no account label, a clash with earlier imports, or more than 5% of balances broken.
 - Password-protected PDFs: `PasswordRequiredError` sets `passwordRequest`, the Statements page shows the unlock dialog, then `unlock(id, password)` runs. The password is passed straight to pdf.js and dropped.

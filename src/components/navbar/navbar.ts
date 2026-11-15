@@ -67,7 +67,12 @@ export class Navbar {
       icon: 'M7 7h13l-3-3M17 17H4l3 3',
     },
     {
-      label: 'Monthly review',
+      label: 'Outlook',
+      path: '/outlook',
+      icon: 'M3 17 9 11l4 4 8-9M16 6h5v5',
+    },
+    {
+      label: 'Review',
       path: '/reports',
       icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
     },

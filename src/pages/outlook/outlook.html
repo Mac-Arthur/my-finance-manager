@@ -1,0 +1,120 @@
+@if (!f.hasData() || !report()) {
+  <app-empty-state title="Your outlook starts with history" description="Import and review a statement to explore what could come next." />
+} @else if (report(); as outlook) {
+  <header class="outlook-header">
+    <div><p class="eyebrow">Your next chapter</p><h1>Outlook</h1><p>{{ f.statement.provider }} · {{ outlook.currency }}</p></div>
+    <span class="chip"><app-icon [path]="icons.sparkles" class="size-4" /> Private & on-device</span>
+  </header>
+  <div class="context-line"><span>From {{ outlook.asOf | date: 'd MMM y' }} · {{ outlook.confidence === 'low' ? 'Limited history' : 'Early estimate' }}</span><a routerLink="/statements">Add history ↗</a></div>
+
+  <section class="slide feature-card">
+    <div class="slide-heading"><span class="step">01</span><p class="eyebrow">The big picture</p></div>
+    <h2>{{ outlook.baselineIncome === 0 ? 'Your income picture is incomplete.' : outlook.scenarios[0].monthlyNet < 0 ? 'Your spending is ahead.' : outlook.scenarios[0].monthlyNet === 0 ? 'Money in meets money out.' : 'You have room to build a buffer.' }}</h2>
+    <div class="snapshot">
+      <div><span>Typical money in / month</span><strong>{{ outlook.baselineIncome | money: 'whole' }}</strong></div>
+      <div><span>Typical money out / month</span><strong>{{ outlook.baselineSpending | money: 'whole' }}</strong></div>
+      <div class="net"><span>{{ outlook.scenarios[0].monthlyNet < 0 ? 'Monthly gap' : 'Monthly left over' }}</span><strong>{{ abs(outlook.scenarios[0].monthlyNet) | money: 'whole' }}</strong></div>
+    </div>
+    <div class="takeaway"><app-icon [path]="icons.info" class="size-5 shrink-0" />
+      @if (outlook.baselineIncome === 0) { <p>Import the account receiving your pay before relying on these estimates.</p> }
+      @else if (outlook.scenarios[1].monthlyNet < 0) { <p>Small cuts help. The spend-less plan still leaves {{ abs(outlook.scenarios[1].monthlyNet) | money: 'whole' }}/month to cover.</p> }
+      @else if (outlook.scenarios[0].monthlyNet < 0) { <p>The spend-less example could close your gap. Try one change below.</p> }
+      @else { <p>Cover upcoming bills first. Set aside what remains as a buffer.</p> }
+    </div>
+  </section>
+
+  <section class="slide panel">
+    <div class="slide-heading"><span class="step">02</span><p class="eyebrow">Explore the next 90 days</p></div>
+    <div class="section-heading"><h2>What if you…</h2><span class="muted">Examples, not promises</span></div>
+    <div class="scenario-tabs" role="group" aria-label="Spending scenario">
+      @for (scenario of outlook.scenarios; track scenario.id) { <button type="button" [attr.aria-pressed]="selectedScenarioId() === scenario.id" (click)="selectScenario(scenario.id)">{{ scenario.shortLabel }}</button> }
+    </div>
+    @if (selectedScenario(); as scenario) {
+      <div aria-live="polite" aria-atomic="true">
+        <p class="scenario-note">{{ scenario.id === 'current' ? 'Keep income and spending at their current pace.' : scenario.id === 'better' ? 'Reduce selected everyday spending by 10%. Income stays the same.' : 'Spend 10% more overall. Income stays the same.' }}</p>
+        <div class="forecast">
+          <div class="forecast-main">
+            <span class="eyebrow">{{ outlook.latestBalance === null ? 'Money gained or used' : 'Possible balance' }} · day 90</span>
+            @if (ninetyDayValue(); as projection) {
+              <strong class="forecast-value" [class.text-error]="(projection.balance ?? projection.cashFlow) < 0">{{ (projection.balance ?? projection.cashFlow) | money: 'whole' : projection.balance === null }}</strong>
+              <span class="muted">{{ horizonDate(90) | date: 'd MMM y' }}</span>
+              @if (projection.balance !== null && projection.balance < 0) { <p class="short-note">A gap to cover, not an available overdraft.</p> }
+            }
+            @if (scenario.id !== 'current') { <p class="comparison">{{ abs(scenario.monthlyNet - outlook.scenarios[0].monthlyNet) * 3 | money: 'whole' }} {{ scenario.id === 'better' ? 'more' : 'less' }} than current pace</p> }
+          </div>
+          <ol class="outlook-timeline" aria-label="Estimated progress">
+            @for (projection of scenario.projections; track projection.days) {
+              <li><div><span>Day {{ projection.days }}</span><small>{{ horizonDate(projection.days) | date: 'd MMM' }}</small></div><strong>{{ (projection.balance ?? projection.cashFlow) | money: 'whole' : projection.balance === null }}</strong></li>
+            }
+          </ol>
+        </div>
+      </div>
+    }
+    <p class="footnote">Starts from your statement date, not today. Missing activity can change the result.</p>
+  </section>
+
+  <section class="slide panel">
+    <div class="slide-heading"><span class="step">03</span><p class="eyebrow">Make one small change</p></div>
+    <div class="section-heading"><h2>Your next moves</h2><span class="muted">Example targets · essentials first</span></div>
+    <div class="actions">
+      @for (action of outlook.actions; track action.category) {
+        <article class="action-card">
+          <div class="action-heading"><app-icon [path]="categories[action.category].icon" class="size-5" /><h3>{{ categories[action.category].label }}</h3><span class="chip">−10%</span></div>
+          <strong class="saving">{{ action.saving | money: 'full' }}<small> / month saved</small></strong>
+          <div class="target-track" aria-hidden="true"><i></i></div>
+          <dl><div><dt>Typical</dt><dd>{{ action.monthly | money: 'full' }}</dd></div><div><dt>Try this target</dt><dd>{{ action.target | money: 'full' }}</dd></div></dl>
+        </article>
+      } @empty { <p class="takeaway">Review your categories first. Unlabelled transfers and withdrawals may hide useful patterns.</p> }
+    </div>
+    <a routerLink="/transactions" class="review-link">Review your transactions ↗</a>
+  </section>
+
+  <details class="detail-panel">
+    <summary><span><strong>More insights</strong><small>{{ outlook.signals.length }} patterns from your statements</small></span><span class="expand" aria-hidden="true">+</span></summary>
+    <div class="insights">
+      @for (signal of outlook.signals; track signal.id) {
+        <article class="insight" [attr.data-tone]="signal.tone">
+          <app-icon [path]="signal.tone === 'good' ? icons.check : signal.tone === 'critical' || signal.tone === 'warning' ? icons.alert : icons.info" class="size-5 shrink-0" />
+          <div><h3>{{ signal.title }}</h3><p>{{ signal.body }}</p></div>
+          @if (signal.value !== undefined) {
+            <strong>@switch (signal.valueKind) {
+              @case ('percent') { {{ signal.value * 100 | number: '1.0-1' }}% }
+              @case ('number') { {{ signal.value | number: '1.0-0' }} }
+              @default { {{ signal.value | money: 'whole' : true }} }
+            }</strong>
+          }
+        </article>
+      }
+    </div>
+  </details>
+  <details class="detail-panel">
+    <summary><span><strong>The history behind your outlook</strong><small>Monthly activity & repeated payments</small></span><span class="expand" aria-hidden="true">+</span></summary>
+    <div class="history-grid">
+      <div><h3>Income & spending</h3>
+        <div class="history-chart" [style.--columns]="outlook.months.length">
+          @for (month of outlook.months; track month.key) {
+            <div class="history-month"><div class="history-bars" role="img" [attr.aria-label]="month.label + ': income ' + (month.income | money) + ', spending ' + (month.spending | money)"><i class="income-bar" [style.height.%]="month.income / monthlyMax() * 100"></i><i class="spending-bar" [style.height.%]="month.spending / monthlyMax() * 100"></i></div><span>{{ month.label }}</span></div>
+          }
+        </div>
+        <p class="legend"><span>● Income</span><span>● Spending & fees</span></p>
+      </div>
+      <div><h3>Repeated payments</h3><p class="footnote">Check which are actual bills before reserving money.</p>
+        <ul class="payments">
+          @for (item of outlook.recurring; track item.name) { <li><span>{{ item.name }}<small>{{ item.months }} months · {{ categories[item.category].label }}</small></span><strong>{{ item.monthly | money: 'whole' }}<small>/month</small></strong></li> }
+          @empty { <li>No stable repeat pattern yet.</li> }
+        </ul>
+      </div>
+    </div>
+  </details>
+  <details class="detail-panel">
+    <summary><span><strong>How we work this out</strong><small>Assumptions & estimate strength</small></span><span class="expand" aria-hidden="true">+</span></summary>
+    <ul class="method-list">
+      <li><strong>{{ outlook.confidence | titlecase }} estimate strength.</strong> {{ outlook.confidenceReason }}</li>
+      <li>“Typical” uses the middle value across up to six earlier imported months. Without earlier months, we use available activity within the last 30 days without scaling it up.</li>
+      <li>Internal transfers and borrowed income are excluded. Repayments remain in spending.</li>
+      <li>The spend-less example reduces selected everyday categories by 10%. Individual category targets may not add up to the scenario saving.</li>
+      <li>Each 30-day step repeats the same estimate. Paydays, bill dates, missing activity and future changes are unknown.</li>
+      <li>A planning aid, not financial advice or a live bank forecast.</li>
+    </ul>
+  </details>
+}

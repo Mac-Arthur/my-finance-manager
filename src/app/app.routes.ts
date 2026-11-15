@@ -29,6 +29,11 @@ export const routes: Routes = [
           import('../pages/transactions/transactions').then((m) => m.Transactions),
       },
       {
+        path: 'outlook',
+        title: 'Outlook · myAvailable',
+        loadComponent: () => import('../pages/outlook/outlook').then((m) => m.Outlook),
+      },
+      {
         path: 'budgets',
         redirectTo: 'reports',
         pathMatch: 'full',

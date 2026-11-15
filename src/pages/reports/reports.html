@@ -166,27 +166,28 @@
     </div>
   </section>
 
-  <!-- Loans -->
-  <section class="panel reveal lg:col-span-12" style="--i: 12">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <p class="panel-title">Loan activity</p>
-        <p class="text-xs text-base-content/50">Borrowed {{ f.loansIn() | money: 'whole' }} · repaid {{ f.loanRepaid() | money: 'whole' }}</p>
+  @if (loans().length) {
+    <section class="panel reveal lg:col-span-12" style="--i: 12">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><p class="panel-title">Loan activity</p><p class="text-xs text-base-content/50">Borrowed {{ f.loansIn() | money: 'whole' }} · repaid {{ f.loanRepaid() | money: 'whole' }}</p></div>
+        <span class="chip bg-warning/15 text-warning"><app-icon [path]="icons.alert" class="size-3" /> Recorded loan activity</span>
       </div>
-      <span class="chip bg-warning/15 text-warning"><app-icon [path]="icons.alert" class="size-3" /> Recorded loan activity</span>
-    </div>
-    <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      @for (t of loans(); track t.id) {
-        <div class="tile flex items-center justify-between gap-3">
-          <div>
-            <p class="text-sm font-medium">{{ t.name }}</p>
-            <p class="text-xs text-base-content/50">{{ t.reference }} · {{ t.date | date: 'd MMM, HH:mm' }}</p>
-          </div>
-          <span class="font-semibold tabular-nums" [class.text-success]="t.amount > 0">{{ t.amount | money: 'full' : true }}</span>
-        </div>
-      }
-    </div>
-  </section>
+      <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        @for (t of loans(); track t.id) {
+          <div class="tile flex items-center justify-between gap-3"><div><p class="text-sm font-medium">{{ t.name }}</p><p class="text-xs text-base-content/50">{{ t.reference }} · {{ t.date | date: 'd MMM, HH:mm' }}</p></div><span class="font-semibold tabular-nums" [class.text-success]="t.amount > 0">{{ t.amount | money: 'full' : true }}</span></div>
+        }
+      </div>
+    </section>
+  } @else {
+    <section class="panel reveal lg:col-span-12" style="--i: 12">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="panel-title">What stood out this month</p><p class="text-xs text-base-content/50">Useful facts from this account's imported activity.</p></div><a routerLink="/outlook" class="chip border border-base-content/10">See your outlook →</a></div>
+      <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        @for (item of monthHighlights(); track item.label) {
+          <div class="tile"><span class="icon-chip size-9 bg-primary/10"><app-icon [path]="item.icon" class="size-4" /></span><p class="mt-3 text-xs text-base-content/50">{{ item.label }}</p><p class="mt-1 text-lg font-semibold tabular-nums">{{ item.value | money: 'whole' }}</p><p class="mt-1 truncate text-xs text-base-content/45">{{ item.detail }}</p></div>
+        }
+      </div>
+    </section>
+  }
 </div>
 
 }
