@@ -1,0 +1,5 @@
+.restore-shell { min-height: 100dvh; max-width: 1200px; margin: auto; padding: 2rem; }
+.restore-file { display: flex; cursor: pointer; align-items: center; gap: .75rem; border: 1px dashed color-mix(in oklab, var(--color-base-content) 22%, transparent); border-radius: 1rem; padding: 1rem; background: var(--control-fill); transition: border-color 180ms ease, background-color 180ms ease; }
+.restore-file:hover { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 8%, var(--control-fill)); }
+@media (max-width: 40rem) { .restore-shell { padding: 1.25rem; } }
+@media (prefers-reduced-motion: reduce) { .restore-file { transition: none; } }

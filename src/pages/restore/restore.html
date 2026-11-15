@@ -1,0 +1,30 @@
+<div class="restore-shell text-base-content">
+  <header class="flex items-center justify-between gap-4">
+    <a routerLink="/welcome" class="flex items-center gap-2 text-xl tracking-tight" aria-label="myAvailable home"><img src="logo-mark.svg" alt="" class="size-10 rounded-[.85rem]" /><strong>my<span class="font-normal opacity-60">Available</span></strong></a>
+    <button type="button" class="btn btn-sm btn-ghost rounded-full" (click)="theme.toggle()">{{ theme.isDark() ? 'Light mode' : 'Dark mode' }}</button>
+  </header>
+
+  <main class="mx-auto grid min-h-[calc(100dvh-9rem)] max-w-lg place-items-center py-10">
+    <section class="glass-surface w-full rounded-box p-6 sm:p-8">
+      <span class="icon-chip bg-primary/15"><app-icon [path]="icons.lock" class="size-5" /></span>
+      <p class="mt-5 text-xs font-semibold uppercase tracking-widest text-base-content/45">Private recovery</p>
+      <h1 class="mt-2 text-2xl font-semibold tracking-tight">Restore your space</h1>
+      <p class="mt-2 text-sm leading-relaxed text-base-content/60">Choose your encrypted <strong>.mya</strong> backup and enter its password. The file is decrypted and checked on this device.</p>
+
+      <form class="mt-6" (submit)="restore($event)">
+        <label class="restore-file">
+          <app-icon [path]="icons.upload" class="size-5" />
+          <span class="min-w-0 flex-1"><strong class="block text-sm">{{ file()?.name || 'Choose backup file' }}</strong><small class="mt-0.5 block truncate text-xs text-base-content/50">{{ file() ? ((file()!.size / 1024 / 1024).toFixed(1) + ' MB') : 'myavailable-backup-YYYY-MM-DD.mya' }}</small></span>
+          <input type="file" class="sr-only" accept=".mya,application/json,application/vnd.myavailable.backup+json" required (change)="chooseFile($event)" />
+        </label>
+
+        <label class="mt-5 block text-sm font-medium" for="fresh-restore-password">Backup password</label>
+        <input id="fresh-restore-password" class="input mt-2 w-full rounded-xl" type="password" autocomplete="current-password" required [value]="password()" (input)="password.set($any($event.target).value)" />
+        @if (error()) { <p class="mt-3 text-sm text-error" role="alert">{{ error() }}</p> }
+
+        <button type="submit" class="btn btn-primary mt-6 w-full rounded-full" [disabled]="busy() || !file() || !password()">{{ busy() ? 'Checking and restoring…' : 'Restore backup' }}</button>
+        <a routerLink="/welcome" class="btn btn-ghost mt-2 w-full rounded-full">Back to welcome</a>
+      </form>
+    </section>
+  </main>
+</div>

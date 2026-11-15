@@ -1,7 +1,15 @@
 :host { display: block; }
 .period-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; padding: .9rem 1rem; border-radius: 1.25rem; margin-bottom: 1.25rem; }
 .month-picker { display: flex; align-items: center; gap: .5rem; padding: .45rem .75rem; border-radius: 2rem; background: color-mix(in srgb, var(--color-base-content) 4%, transparent); }
-.month-picker input { max-width: 9rem; min-width: 0; background: transparent; }
+.month-picker select { max-width: 10rem; min-width: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.month-picker select:focus { outline: 0; }
+.balance-freshness { position: relative; display: flex; align-items: center; gap: .55rem; margin-top: .8rem; border: 1px solid var(--feature-soft-edge); border-radius: .9rem; padding: .55rem .65rem; background: var(--feature-soft); font-size: .7rem; }
+.balance-freshness strong, .balance-freshness small { display: block; }
+.balance-freshness small { margin-top: .1rem; opacity: .62; }
+.balance-freshness a { flex: none; border-radius: 999px; padding: .3rem .55rem; background: color-mix(in oklab, var(--color-primary) 65%, transparent); font-weight: 700; }
+.balance-freshness__dot { width: .55rem; height: .55rem; flex: none; border-radius: 99px; background: var(--color-success); box-shadow: 0 0 0 .2rem color-mix(in oklab, var(--color-success) 15%, transparent); }
+.balance-freshness[data-tone='aging'] .balance-freshness__dot { background: var(--color-warning); box-shadow: 0 0 0 .2rem color-mix(in oklab, var(--color-warning) 15%, transparent); }
+.balance-freshness[data-tone='stale'] .balance-freshness__dot { background: var(--color-error); box-shadow: 0 0 0 .2rem color-mix(in oklab, var(--color-error) 15%, transparent); }
 .recent-card, .insights-card { height: 440px; display: flex; flex-direction: column; min-width: 0; }
 .transaction-list { display: grid; gap: .5rem; }
 .transaction-row { min-width: 0; min-height: 62px; padding: .6rem .75rem; border: 1px solid color-mix(in srgb, var(--color-base-content) 4%, transparent); border-radius: 1rem; background: color-mix(in srgb, var(--color-base-100) 45%, transparent); transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease; }
@@ -12,6 +20,6 @@
 .view-all:hover { background: var(--color-primary); color: var(--color-primary-content); }
 .insights-scroll { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--color-base-content) 20%, transparent) transparent; padding-right: .5rem; display: flex; flex-direction: column; gap: .65rem; }
 .insights-scroll .tile { background: color-mix(in srgb, var(--color-base-content) 4%, transparent); border: 1px solid color-mix(in srgb, var(--color-base-content) 5%, transparent); }
-.view-all:focus-visible, input:focus-visible, .insights-scroll:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.view-all:focus-visible, input:focus-visible, .month-picker:has(select:focus-visible), .insights-scroll:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
 @media (max-width: 400px) { .transaction-row { padding: .5rem; gap: .5rem; } .transaction-icon { width: 2rem; height: 2rem; } }
 @media (prefers-reduced-motion: reduce) { .transaction-row, .transaction-icon { transition: none; } .transaction-row:hover, .transaction-row:hover .transaction-icon { transform: none; } }

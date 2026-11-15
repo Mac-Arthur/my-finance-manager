@@ -272,6 +272,29 @@ export class Statements {
     finally { this.busy.set(false); }
   }
 
+  /** Complete local snapshot used only by encrypted backup. */
+  async exportAll(): Promise<SavedStatement[]> {
+    return this.all();
+  }
+
+  /** Atomically replaces the statement store after a backup has been fully decrypted and validated. */
+  async replaceAll(records: SavedStatement[]) {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('statements', 'readwrite');
+      const store = tx.objectStore('statements');
+      store.clear();
+      for (const record of records) store.put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(new Error('Could not replace local statements. Your previous data was kept where possible.'));
+    });
+    this.items.set(await this.all());
+  }
+
+  async clearAll() {
+    await this.replaceAll([]);
+  }
+
   download(item: SavedStatement) {
     const url = URL.createObjectURL(item.file);
     const link = document.createElement('a');

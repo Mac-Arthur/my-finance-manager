@@ -54,24 +54,27 @@
       </div>
       <ul class="divide-y divide-base-content/5">
         @for (t of g.items; track t.id) {
-          <li class="flex items-center gap-3 rounded-xl px-1 py-2.5 transition-colors hover:bg-base-content/[0.03]">
-            <span class="icon-chip size-10 rounded-full" [class]="t.amount > 0 ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/70 dark:bg-base-content/10'">
-              <app-icon [path]="cat(t.category).icon" class="size-4" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ t.name }}</p>
-              <p class="truncate text-xs text-base-content/50">
-                @if (f.viewingAllAccounts()) { {{ t.account }} · }
-                {{ cat(t.category).label }} · {{ t.date | date: 'h:mm a' }}
-                @if (t.reference && t.reference !== '-' && t.reference !== 'Pay') { · “{{ t.reference }}” }
-              </p>
-            </div>
-            <div class="text-right">
-              <p class="text-sm font-semibold tabular-nums" [class.text-success]="t.amount > 0">{{ t.amount | money: 'full' : true }}</p>
-              @if (t.fee > 0) {
-                <p class="text-[11px] text-base-content/40 tabular-nums">fee {{ t.fee | money }}</p>
-              }
-            </div>
+          <li>
+            <button type="button" class="transaction-row" (click)="openTransaction(t)" [attr.aria-label]="'View and edit ' + t.name">
+              <span class="icon-chip size-10 rounded-full" [class]="t.amount > 0 ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/70 dark:bg-base-content/10'">
+                <app-icon [path]="cat(t.category).icon" class="size-4" />
+              </span>
+              <div class="min-w-0 flex-1 text-left">
+                <p class="truncate text-sm font-medium">{{ t.name }}</p>
+                <p class="truncate text-xs text-base-content/50">
+                  @if (f.viewingAllAccounts()) { {{ t.account }} · }
+                  {{ cat(t.category).label }} · {{ t.date | date: 'h:mm a' }}
+                  @if (t.reference && t.reference !== '-' && t.reference !== 'Pay') { · “{{ t.reference }}” }
+                </p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-sm font-semibold tabular-nums" [class.text-success]="t.amount > 0">{{ t.amount | money: 'full' : true }}</p>
+                @if (t.fee > 0) {
+                  <p class="text-[11px] text-base-content/40 tabular-nums">fee {{ t.fee | money }}</p>
+                }
+              </div>
+              <app-icon [path]="icons.chevron" class="size-3.5 shrink-0 text-base-content/25" />
+            </button>
           </li>
         }
       </ul>
@@ -142,6 +145,89 @@
         <button type="button" class="btn btn-ghost rounded-full" (click)="clearDraftFilters()">Reset</button>
         <button type="button" class="btn btn-primary min-w-0 flex-1 rounded-full" (click)="applyFilters()">
           Show {{ draftResultCount() }} {{ draftResultCount() === 1 ? 'transaction' : 'transactions' }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}
+
+@if (selectedTransaction(); as transaction) {
+  <div class="transaction-backdrop" role="dialog" aria-modal="true" aria-labelledby="transaction-title" (click)="closeTransaction()">
+    <section class="transaction-sheet" (click)="$event.stopPropagation()">
+      <div class="transaction-sheet__handle" aria-hidden="true"></div>
+      <header class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-xs font-medium uppercase tracking-widest text-base-content/45">Transaction details</p>
+          <h2 id="transaction-title" class="mt-1 truncate text-xl font-semibold">{{ transaction.name }}</h2>
+          <p class="mt-1 text-2xl font-semibold tabular-nums" [class.text-success]="transaction.amount > 0">{{ transaction.amount | money: 'full' : true }}</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-circle btn-sm" aria-label="Close transaction" (click)="closeTransaction()">
+          <app-icon [path]="icons.close" class="size-4" />
+        </button>
+      </header>
+
+      <dl class="transaction-meta mt-5">
+        <div><dt>Account</dt><dd>{{ transaction.account }}</dd></div>
+        <div><dt>Date</dt><dd>{{ transaction.date | date: 'd MMM y, h:mm a' }}</dd></div>
+        <div><dt>Fee</dt><dd>{{ transaction.fee | money }}</dd></div>
+        <div><dt>Balance after</dt><dd>{{ transaction.balance === null ? 'Not provided' : (transaction.balance | money) }}</dd></div>
+        @if (transaction.reference && transaction.reference !== '-') {
+          <div class="sm:col-span-2"><dt>Reference</dt><dd class="break-words">{{ transaction.reference }}</dd></div>
+        }
+      </dl>
+
+      <div class="mt-6">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold">Choose the right category</h3>
+            <p class="mt-1 text-xs text-base-content/50">
+              @switch (selectedCategorySource()) {
+                @case ('transfer') { Matched with another account as your transfer. }
+                @case ('transaction') { You corrected this transaction. }
+                @case ('rule') { Applied by a saved rule. }
+                @default { Suggested from the imported statement. }
+              }
+            </p>
+          </div>
+          @if (selectedCategorySource() === 'transaction') {
+            <button type="button" class="text-xs font-medium text-base-content/55 underline underline-offset-4" (click)="resetTransactionCategory()">Reset</button>
+          }
+        </div>
+
+        <button type="button" class="own-transfer-choice mt-3" [attr.aria-pressed]="editorCategory() === 'own-accounts'"
+          (click)="editorCategory.set('own-accounts')">
+          <span class="icon-chip size-10 bg-primary/15"><app-icon [path]="cat('own-accounts').icon" class="size-4" /></span>
+          <span class="min-w-0 flex-1 text-left"><span class="block text-sm font-semibold">Between my own accounts</span><span class="block text-xs text-base-content/50">Exclude this from income and spending</span></span>
+          @if (editorCategory() === 'own-accounts') { <span class="category-option__check"><app-icon [path]="icons.check" class="size-3" /></span> }
+        </button>
+
+        <div class="editor-categories mt-3">
+          @for (category of editorCategories(); track category.id) {
+            <button type="button" class="editor-category" [attr.aria-pressed]="editorCategory() === category.id" (click)="editorCategory.set(category.id)">
+              <span class="icon-chip size-9 bg-base-content/5 text-base-content/70"><app-icon [path]="category.icon" class="size-4" /></span>
+              <span class="min-w-0 flex-1 truncate text-left text-sm font-medium">{{ category.label }}</span>
+              @if (editorCategory() === category.id) { <span class="category-option__check"><app-icon [path]="icons.check" class="size-3" /></span> }
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (selectedRule(); as rule) {
+        <div class="rule-note mt-5">
+          <div class="min-w-0 flex-1"><p class="text-sm font-medium">Saved rule for {{ rule.counterparty }}</p><p class="mt-0.5 text-xs text-base-content/50">Similar {{ rule.direction === 'in' ? 'incoming' : 'outgoing' }} transactions use {{ cat(rule.category).label }}.</p></div>
+          <button type="button" class="btn btn-ghost btn-xs shrink-0 rounded-full" (click)="removeSelectedRule()">Remove rule</button>
+        </div>
+      } @else if (similarCount() > 1) {
+        <label class="teach-rule mt-5">
+          <input type="checkbox" class="checkbox checkbox-sm" [checked]="teachSimilar()" (change)="teachSimilar.set($any($event.target).checked)" />
+          <span><span class="block text-sm font-medium">Remember for “{{ transaction.name }}”</span><span class="mt-0.5 block text-xs text-base-content/50">Apply to all {{ similarCount() }} matching {{ transaction.amount > 0 ? 'incoming' : 'outgoing' }} transactions.</span></span>
+        </label>
+      }
+
+      <footer class="mt-6 flex items-center gap-3">
+        <button type="button" class="btn btn-ghost rounded-full" (click)="closeTransaction()">Cancel</button>
+        <button type="button" class="btn btn-primary min-w-0 flex-1 rounded-full" [disabled]="!editorCategory()" (click)="saveTransactionCategory()">
+          Save category
         </button>
       </footer>
     </section>

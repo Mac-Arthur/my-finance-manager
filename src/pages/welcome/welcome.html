@@ -8,7 +8,10 @@
       <span class="chip border border-base-content/10 px-3 py-1.5 text-base-content/65">A little clarity. Every month.</span>
       <h1 class="mt-6 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">Your money.<br />Your story.<br /><span class="text-base-content/45">Finally in focus.</span></h1>
       <p class="mt-6 max-w-md text-base leading-relaxed text-base-content/65">Build a clearer picture of your money, one statement at a time. Start with the last three months and grow from there.</p>
-      <a routerLink="/onboarding" class="btn btn-primary mt-8 rounded-full px-8">Set up my space <app-icon [path]="icons.chevron" class="size-4" /></a>
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <a routerLink="/onboarding" class="btn btn-primary rounded-full px-8">Set up my space <app-icon [path]="icons.chevron" class="size-4" /></a>
+        <a routerLink="/restore" class="btn btn-ghost rounded-full border border-base-content/10">Restore a backup</a>
+      </div>
       <p class="mt-4 max-w-sm text-xs leading-relaxed text-base-content/55">This first version lives in your browser. No password or bank connection needed. Use a device you trust.</p>
     </section>
     <section class="journey-card feature-card reveal" style="--i: 2" aria-label="Getting started">
@@ -26,5 +29,5 @@
       <div class="mt-9 border-t border-base-content/10 pt-5 text-xs leading-relaxed text-base-content/65">Start with your own data. No sample balances, invented spending or automatic uploads.</div>
     </section>
   </main>
-  <footer class="py-6 text-xs text-base-content/45">myAvailable · A clearer relationship with your money.</footer>
+  <footer class="flex flex-wrap gap-x-5 gap-y-2 py-6 text-xs text-base-content/45"><span>myAvailable · A clearer relationship with your money.</span><a routerLink="/help">Help</a><a routerLink="/privacy">Privacy</a><a routerLink="/terms">Terms</a></footer>
 </div>

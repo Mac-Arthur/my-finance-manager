@@ -75,4 +75,31 @@ describe('Finance without demo data', () => {
     expect(finance.ownTransfers()).toHaveLength(1);
     expect(finance.statement.availableBalance).toBe(1500);
   });
+
+  it('applies reversible one-off categories and teach-once counterparty rules', () => {
+    const draft = parseCsv('date,name,amount,balance,id\n2026-11-01,Corner Shop,-10,90,A\n2026-11-02,Corner Shop,-20,70,B\n2026-11-03,Salary,100,170,C');
+    draft.account = 'Test wallet';
+    TestBed.inject(Statements).items.set([
+      { id: 'test', name: 'test.csv', kind: 'csv', size: 1, addedAt: '2026-11-03', status: 'confirmed', file: new Blob(), draft },
+    ]);
+    const [salary, second, first] = finance.allTransactions();
+    const importedCategory = first.category;
+
+    expect(finance.setTransactionCategory(first.id, 'food', true)).toBe(true);
+    expect(finance.allTransactions().filter(row => row.name === 'Corner Shop').map(row => row.category)).toEqual(['food', 'food']);
+    expect(finance.categorySource(first.id)).toBe('transaction');
+    expect(finance.categorySource(second.id)).toBe('rule');
+
+    const rule = finance.categoryRuleFor(second.id)!;
+    finance.removeCategoryRule(rule.key);
+    expect(finance.allTransactions().find(row => row.id === second.id)?.category).toBe(importedCategory);
+    expect(finance.allTransactions().find(row => row.id === first.id)?.category).toBe('food');
+    finance.resetTransactionCategory(first.id);
+    expect(finance.allTransactions().find(row => row.id === first.id)?.category).toBe(importedCategory);
+    expect(finance.setTransactionCategory(salary.id, 'food')).toBe(false);
+
+    expect(finance.moneyOut()).toBe(30);
+    expect(finance.setTransactionCategory(first.id, 'own-accounts')).toBe(true);
+    expect(finance.moneyOut()).toBe(20);
+  });
 });

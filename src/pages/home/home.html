@@ -32,8 +32,13 @@
       <button type="button" [attr.aria-pressed]="period() === 'quarter'" (click)="selectPeriod('quarter')">Last 3 months</button>
       <button type="button" [attr.aria-pressed]="period() === 'year'" (click)="selectPeriod('year')">This year</button>
     </div>
-    <label class="month-picker text-xs">Go to month
-      <input type="month" aria-label="Go to month" [max]="currentMonth" [value]="month()" (change)="selectMonth($any($event.target).value)" />
+    <label class="month-picker text-xs">
+      <span>Go to month</span>
+      <select aria-label="Go to month" [value]="selectedMonth()" (change)="selectMonth($any($event.target).value)">
+        @for (option of monthOptions(); track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
     </label>
   </div>
 </section>
@@ -83,6 +88,13 @@
       @if (f.viewingAllAccounts()) { Latest known balance from each account · not live }
       @else { As of {{ f.statement.to | date: 'd MMM y' }} · not a live balance }
     </p>
+    @if (balanceFreshness(); as freshness) {
+      <div class="balance-freshness" [attr.data-tone]="freshness.tone">
+        <span class="balance-freshness__dot" aria-hidden="true"></span>
+        <span class="min-w-0 flex-1"><strong>{{ freshness.label }}</strong><small>{{ freshness.detail }}</small></span>
+        @if (freshness.tone !== 'fresh') { <a routerLink="/statements">Update</a> }
+      </div>
+    }
     <p class="relative mt-2 inline-flex items-center gap-1.5 feature-soft rounded-full px-2.5 py-1 text-xs">
       Net this period
       <span class="font-semibold" [class]="f.net() >= 0 ? 'text-success' : 'text-error'">

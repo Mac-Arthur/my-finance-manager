@@ -4,6 +4,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { CATEGORIES, SPENDING_CATEGORIES } from '../../data/categories';
 import { Budget, CategoryId, Channel, Transaction } from '../../models/finance';
 import { findTransferCandidates } from './transfers';
+import { applyCategoryCorrections, CategoryCorrections, categoryRuleKey, ruleForTransaction, transactionDirection } from './category-corrections';
 
 export interface CategoryTotal {
   id: CategoryId;
@@ -44,6 +45,7 @@ const DAY = 86_400_000;
 const BUDGETS_KEY = 'mysika.budgets.v1';
 const GOAL_KEY = 'mysika.goal.v1';
 const TRANSFERS_KEY = 'mysika.transfer-matches.v1';
+const CORRECTIONS_KEY = 'mysika.transaction-corrections.v1';
 const ALL_ACCOUNTS = '__all__';
 
 interface TransferDecisions { confirmed: string[]; dismissed: string[]; }
@@ -76,8 +78,10 @@ export class Finance {
   readonly currency = 'GHS';
 
   private readonly rawTransactions = computed(() => ledgerTransactions(this.store.confirmed()));
+  readonly categoryCorrections = signal<CategoryCorrections>(readJson(CORRECTIONS_KEY, { overrides: {}, rules: [] }));
+  private readonly correctedTransactions = computed(() => applyCategoryCorrections(this.rawTransactions(), this.categoryCorrections()));
   readonly transferDecisions = signal<TransferDecisions>(readJson(TRANSFERS_KEY, { confirmed: [], dismissed: [] }));
-  readonly transferCandidates = computed(() => findTransferCandidates(this.rawTransactions()));
+  readonly transferCandidates = computed(() => findTransferCandidates(this.correctedTransactions()));
   readonly pendingTransferCandidates = computed(() => {
     const decisions = this.transferDecisions();
     return this.transferCandidates().filter(candidate => candidate.confidence === 'review' &&
@@ -91,10 +95,75 @@ export class Finance {
   /** All transactions, with matched sides classified as internal moves. */
   readonly allTransactions = computed(() => {
     const matched = new Set(this.matchedTransferCandidates().flatMap(candidate => [candidate.outgoing.id, candidate.incoming.id]));
-    return this.rawTransactions().map(transaction => matched.has(transaction.id)
+    return this.correctedTransactions().map(transaction => matched.has(transaction.id)
       ? { ...transaction, category: 'own-accounts' as const }
       : transaction);
   });
+
+  categorySource(transactionId: string): 'transfer' | 'transaction' | 'rule' | 'import' {
+    if (this.matchedTransferCandidates().some(candidate => candidate.outgoing.id === transactionId || candidate.incoming.id === transactionId)) return 'transfer';
+    if (this.categoryCorrections().overrides[transactionId]) return 'transaction';
+    const transaction = this.rawTransactions().find(row => row.id === transactionId);
+    return transaction && ruleForTransaction(transaction, this.categoryCorrections().rules) ? 'rule' : 'import';
+  }
+
+  categoryRuleFor(transactionId: string) {
+    const transaction = this.rawTransactions().find(row => row.id === transactionId);
+    return transaction ? ruleForTransaction(transaction, this.categoryCorrections().rules) : null;
+  }
+
+  similarTransactionCount(transactionId: string) {
+    const selected = this.rawTransactions().find(row => row.id === transactionId);
+    if (!selected) return 0;
+    const key = categoryRuleKey(selected.name, transactionDirection(selected));
+    return this.rawTransactions().filter(row => categoryRuleKey(row.name, transactionDirection(row)) === key).length;
+  }
+
+  setTransactionCategory(transactionId: string, category: CategoryId, teachSimilar = false) {
+    const transaction = this.rawTransactions().find(row => row.id === transactionId);
+    const definition = CATEGORIES[category];
+    if (!transaction || !definition) return false;
+    const direction = transactionDirection(transaction);
+    if (definition.kind !== 'neutral' && definition.kind !== direction) return false;
+
+    if (category !== 'own-accounts') {
+      for (const candidate of this.matchedTransferCandidates().filter(candidate => candidate.outgoing.id === transactionId || candidate.incoming.id === transactionId)) {
+        this.dismissTransfer(candidate.key);
+      }
+    }
+
+    this.categoryCorrections.update(value => {
+      const overrides = { ...value.overrides, [transactionId]: category };
+      if (!teachSimilar) return { ...value, overrides };
+      const key = categoryRuleKey(transaction.name, direction);
+      const rule = { key, counterparty: transaction.name, direction, category };
+      return { overrides, rules: [...value.rules.filter(item => item.key !== key), rule] };
+    });
+    if (category === 'own-accounts') this.reconsiderTransferCandidates(transactionId);
+    return true;
+  }
+
+  resetTransactionCategory(transactionId: string) {
+    const hadOverride = !!this.categoryCorrections().overrides[transactionId];
+    this.categoryCorrections.update(value => {
+      const overrides = { ...value.overrides };
+      delete overrides[transactionId];
+      return { ...value, overrides };
+    });
+    if (hadOverride) this.reconsiderTransferCandidates(transactionId);
+  }
+
+  removeCategoryRule(key: string) {
+    this.categoryCorrections.update(value => ({ ...value, rules: value.rules.filter(rule => rule.key !== key) }));
+  }
+
+  private reconsiderTransferCandidates(transactionId: string) {
+    const keys = new Set(this.transferCandidates()
+      .filter(candidate => candidate.outgoing.id === transactionId || candidate.incoming.id === transactionId)
+      .map(candidate => candidate.key));
+    if (!keys.size) return;
+    this.transferDecisions.update(value => ({ ...value, dismissed: value.dismissed.filter(key => !keys.has(key)) }));
+  }
   /** Each imported wallet remains its own ledger. Combined totals come after transfer matching. */
   readonly accounts = computed<FinanceAccount[]>(() => {
     const grouped = new Map<string, Transaction[]>();
@@ -413,5 +482,6 @@ export class Finance {
     effect(() => { const value = JSON.stringify(this.budgets()); try { localStorage.setItem(BUDGETS_KEY, value); } catch { /* No persisted budgets when storage is unavailable. */ } });
     effect(() => { const value = JSON.stringify(this.goal()); try { localStorage.setItem(GOAL_KEY, value); } catch { /* No persisted goal when storage is unavailable. */ } });
     effect(() => { const value = JSON.stringify(this.transferDecisions()); try { localStorage.setItem(TRANSFERS_KEY, value); } catch { /* Decisions remain available for this session. */ } });
+    effect(() => { const value = JSON.stringify(this.categoryCorrections()); try { localStorage.setItem(CORRECTIONS_KEY, value); } catch { /* Corrections remain available for this session. */ } });
   }
 }

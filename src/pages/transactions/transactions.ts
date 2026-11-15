@@ -24,6 +24,36 @@ export class Transactions {
   protected readonly filterOpen = signal(false);
   protected readonly draftDirection = signal<'all' | 'in' | 'out'>('all');
   protected readonly draftCategory = signal<CategoryId | null>(null);
+  protected readonly selectedTransactionId = signal<string | null>(null);
+  protected readonly editorCategory = signal<CategoryId | null>(null);
+  protected readonly teachSimilar = signal(false);
+
+  protected readonly selectedTransaction = computed(() => {
+    const id = this.selectedTransactionId();
+    return id ? this.f.allTransactions().find(transaction => transaction.id === id) ?? null : null;
+  });
+
+  protected readonly editorCategories = computed(() => {
+    const transaction = this.selectedTransaction();
+    if (!transaction) return [];
+    const kind = transaction.amount > 0 ? 'in' : 'out';
+    return Object.values(CATEGORIES).filter(category => category.kind === kind);
+  });
+
+  protected readonly selectedCategorySource = computed(() => {
+    const transaction = this.selectedTransaction();
+    return transaction ? this.f.categorySource(transaction.id) : 'import';
+  });
+
+  protected readonly selectedRule = computed(() => {
+    const transaction = this.selectedTransaction();
+    return transaction ? this.f.categoryRuleFor(transaction.id) : null;
+  });
+
+  protected readonly similarCount = computed(() => {
+    const transaction = this.selectedTransaction();
+    return transaction ? this.f.similarTransactionCount(transaction.id) : 0;
+  });
 
   /** Only categories that actually appear, most-used first. */
   protected readonly categoryChips = computed(() => {
@@ -95,9 +125,47 @@ export class Transactions {
     this.draftCategory.set(null);
   }
 
+  protected openTransaction(transaction: Transaction) {
+    this.filterOpen.set(false);
+    this.selectedTransactionId.set(transaction.id);
+    this.editorCategory.set(transaction.category);
+    this.teachSimilar.set(false);
+  }
+
+  protected closeTransaction() {
+    this.selectedTransactionId.set(null);
+    this.editorCategory.set(null);
+    this.teachSimilar.set(false);
+  }
+
+  protected saveTransactionCategory() {
+    const transaction = this.selectedTransaction();
+    const category = this.editorCategory();
+    if (!transaction || !category) return;
+    if (this.f.setTransactionCategory(transaction.id, category, this.teachSimilar())) this.closeTransaction();
+  }
+
+  protected resetTransactionCategory() {
+    const transaction = this.selectedTransaction();
+    if (!transaction) return;
+    this.f.resetTransactionCategory(transaction.id);
+    this.editorCategory.set(this.f.allTransactions().find(row => row.id === transaction.id)?.category ?? transaction.category);
+    this.teachSimilar.set(false);
+  }
+
+  protected removeSelectedRule() {
+    const rule = this.selectedRule();
+    if (!rule) return;
+    this.f.removeCategoryRule(rule.key);
+    const transaction = this.selectedTransaction();
+    if (transaction) this.editorCategory.set(this.f.allTransactions().find(row => row.id === transaction.id)?.category ?? transaction.category);
+    this.teachSimilar.set(false);
+  }
+
   @HostListener('document:keydown.escape')
   protected onEscape() {
     this.closeFilters();
+    this.closeTransaction();
   }
 
   protected cat(id: CategoryId) {

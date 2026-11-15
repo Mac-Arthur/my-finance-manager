@@ -1,11 +1,11 @@
 import { Statements } from '../../services/statements/statements';
 import { Component, inject } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterOutlet } from '@angular/router';
 import { Navbar } from '../navbar/navbar';
 
 @Component({
   selector: 'app-layout',
-  imports: [RouterOutlet, Navbar],
+  imports: [RouterOutlet, RouterLink, Navbar],
   templateUrl: './layout.html',
   styleUrl: './layout.css',
 })

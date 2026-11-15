@@ -4,6 +4,10 @@ import { setupGuard, welcomeGuard } from '../services/onboarding/onboarding.guar
 import { NotFound } from '../components/not-found/not-found';
 
 export const routes: Routes = [
+  { path: 'help', title: 'Help & supported statements · myAvailable', loadComponent: () => import('../pages/support/support').then(m => m.Support) },
+  { path: 'privacy', title: 'Privacy · myAvailable', data: { document: 'privacy' }, loadComponent: () => import('../pages/legal/legal').then(m => m.Legal) },
+  { path: 'terms', title: 'Terms · myAvailable', data: { document: 'terms' }, loadComponent: () => import('../pages/legal/legal').then(m => m.Legal) },
+  { path: 'restore', title: 'Restore backup · myAvailable', loadComponent: () => import('../pages/restore/restore').then(m => m.Restore) },
   { path: 'welcome', title: 'Welcome · myAvailable', canActivate: [welcomeGuard], loadComponent: () => import('../pages/welcome/welcome').then(m => m.Welcome) },
   { path: 'onboarding', title: 'Your space · myAvailable', loadComponent: () => import('../pages/onboarding/onboarding').then(m => m.Onboarding) },
   {

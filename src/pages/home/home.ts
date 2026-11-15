@@ -34,10 +34,58 @@ export class Home implements OnDestroy {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   })();
+  protected readonly monthOptions = computed(() => {
+    const activeAccount = this.f.activeAccount();
+    const months = new Set(
+      this.f.allTransactions()
+        .filter((transaction) => !activeAccount || transaction.accountKey === activeAccount.key)
+        .map((transaction) => `${transaction.date.getFullYear()}-${String(transaction.date.getMonth() + 1).padStart(2, '0')}`)
+        .filter((month) => month <= this.currentMonth),
+    );
+
+    return [...months]
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => {
+        const [year, month] = value.split('-').map(Number);
+        return {
+          value,
+          label: new Date(year, month - 1, 1).toLocaleDateString('en-GH', { month: 'long', year: 'numeric' }),
+        };
+      });
+  });
+  protected readonly selectedMonth = computed(() => {
+    const options = this.monthOptions();
+    const selected = this.month();
+    if (selected && options.some((option) => option.value === selected)) return selected;
+
+    const latest = this.f.statementMeta()?.to;
+    const latestMonth = latest ? `${latest.getFullYear()}-${String(latest.getMonth() + 1).padStart(2, '0')}` : '';
+    return options.find((option) => option.value === latestMonth)?.value ?? options[0]?.value ?? '';
+  });
+  protected readonly balanceFreshness = computed(() => {
+    const accounts = this.f.accounts();
+    const active = this.f.activeAccount();
+    const updatedAt = active?.latestActivity ?? (accounts.length
+      ? new Date(Math.min(...accounts.map((account) => +account.latestActivity)))
+      : this.f.statementMeta()?.to);
+    if (!updatedAt) return null;
+
+    const today = new Date();
+    const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startUpdated = new Date(updatedAt.getFullYear(), updatedAt.getMonth(), updatedAt.getDate());
+    const days = Math.max(0, Math.floor((+startToday - +startUpdated) / 86_400_000));
+    const combined = this.f.viewingAllAccounts();
+    if (days === 0) return { tone: 'fresh', label: 'Updated today', detail: combined ? 'Every account balance is from today.' : 'Your latest imported balance is from today.' };
+    if (days <= 7) return { tone: 'fresh', label: days === 1 ? 'Updated yesterday' : `Updated ${days} days ago`, detail: combined ? 'Based on the oldest account balance.' : 'Recent imported balance.' };
+    if (days <= 31) return { tone: 'aging', label: `${days} days old`, detail: combined ? 'At least one account needs a newer statement.' : 'Import a newer statement for a current picture.' };
+    const months = Math.max(1, Math.floor(days / 30));
+    return { tone: 'stale', label: `${months} month${months === 1 ? '' : 's'} old`, detail: combined ? 'At least one account balance is out of date.' : 'This balance is historical, not current.' };
+  });
   protected readonly range = computed(() => {
     const latest = this.f.statementMeta()?.to;
     const anchor = (this.period() === 'quarter' || this.period() === 'year') && latest ? `${latest.getFullYear()}-${String(latest.getMonth() + 1).padStart(2, '0')}` : this.currentMonth;
-    const [year, month] = (this.month() || anchor).split('-').map(Number);
+    const chosenMonth = this.period() === 'custom' ? this.selectedMonth() : anchor;
+    const [year, month] = chosenMonth.split('-').map(Number);
     if (this.period() === 'year') {
       // 1 January of the latest imported year up to the latest imported month.
       return { from: new Date(year, 0, 1), to: new Date(year, month, 0, 23, 59, 59, 999) };
@@ -62,7 +110,7 @@ export class Home implements OnDestroy {
   }
 
   protected selectMonth(value: string) {
-    if (!/^\d{4}-\d{2}$/.test(value) || value > this.currentMonth) return;
+    if (!this.monthOptions().some((option) => option.value === value)) return;
     this.month.set(value);
     this.period.set('custom');
   }

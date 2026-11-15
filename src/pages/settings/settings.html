@@ -86,14 +86,55 @@
       <p class="mt-2 text-sm leading-relaxed text-base-content/60">Statements and PDF passwords are never sent to a server. Clearing this browser's site data removes your saved copies.</p>
     </div>
 
+    @if (dataNotice()) {
+      <p class="mt-3 rounded-xl bg-success/10 p-3 text-sm text-base-content/70" role="status">{{ dataNotice() }}</p>
+    }
+
     <a routerLink="/statements" class="setting-link mt-3">
       <span class="icon-chip size-9 bg-base-content/5"><app-icon [path]="icons.history" class="size-4" /></span>
       <span class="min-w-0 flex-1"><strong>Manage statements</strong><small>Review, download or remove imported files</small></span>
       <app-icon [path]="icons.chevron" class="size-4 text-base-content/40" />
     </a>
+
+    <button type="button" class="setting-link w-full" (click)="openDataDialog('export')">
+      <span class="icon-chip size-9 bg-primary/10"><app-icon [path]="icons.lock" class="size-4" /></span>
+      <span class="min-w-0 flex-1 text-left"><strong>Download encrypted backup</strong><small>Statements, corrections and preferences in one protected file</small></span>
+      <app-icon [path]="icons.chevron" class="size-4 text-base-content/40" />
+    </button>
+
+    <label class="setting-link w-full cursor-pointer">
+      <span class="icon-chip size-9 bg-base-content/5"><app-icon [path]="icons.upload" class="size-4" /></span>
+      <span class="min-w-0 flex-1"><strong>Restore from backup</strong><small>Replace this browser's data with a saved copy</small></span>
+      <app-icon [path]="icons.chevron" class="size-4 text-base-content/40" />
+      <input type="file" class="sr-only" accept=".mya,application/json,application/vnd.myavailable.backup+json" (change)="chooseBackup($event)" />
+    </label>
+
+    <button type="button" class="setting-link w-full text-error" (click)="openDataDialog('clear')">
+      <span class="icon-chip size-9 bg-error/10"><app-icon [path]="icons.alert" class="size-4" /></span>
+      <span class="min-w-0 flex-1 text-left"><strong>Clear all local data</strong><small class="text-error/70">Remove statements, profile and every preference</small></span>
+      <app-icon [path]="icons.chevron" class="size-4 opacity-50" />
+    </button>
   </section>
 
-  <section class="panel reveal settings-footnote" style="--i: 4">
+  <section class="panel reveal" style="--i: 4">
+    <div class="flex items-center gap-3">
+      <span class="icon-chip bg-info/10 text-info"><app-icon [path]="icons.info" class="size-5" /></span>
+      <div><h2 class="panel-title">Help &amp; app information</h2><p class="mt-0.5 text-xs text-base-content/50">Support, compatibility and this browser's storage.</p></div>
+    </div>
+    <div class="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-base-content/10 bg-base-content/[.025] p-3">
+      <div class="min-w-0"><span class="block text-[.7rem] text-base-content/50">App version</span><strong class="mt-0.5 block text-sm">v{{ appVersion }}</strong></div>
+      <div class="min-w-0"><span class="block text-[.7rem] text-base-content/50">Saved statement files</span><strong class="mt-0.5 block text-sm">{{ formatBytes(statementBytes()) }}</strong></div>
+      @if (storageInfo(); as storage) {
+        <div class="col-span-full min-w-0"><span class="block text-[.7rem] text-base-content/50">This site's browser storage</span><strong class="mt-0.5 block break-words text-sm">{{ formatBytes(storage.usage) }}@if (storage.quota) { / {{ formatBytes(storage.quota) }} }</strong></div>
+        <p class="col-span-full text-xs leading-relaxed text-base-content/55">@if (storage.persistent) { This browser has marked the data as persistent, but an encrypted backup is still recommended. } @else { The browser may remove local data under storage pressure. Keep an encrypted backup somewhere safe. }</p>
+      } @else { <p class="col-span-full text-xs leading-relaxed text-base-content/55">This browser does not expose a storage estimate. Your imported files are still listed above.</p> }
+    </div>
+    <a routerLink="/help" class="setting-link mt-3"><span class="icon-chip size-9 bg-primary/10"><app-icon [path]="icons.info" class="size-4" /></span><span class="min-w-0 flex-1"><strong>Help &amp; supported statements</strong><small>Compatibility, import fixes and safe support details</small></span><app-icon [path]="icons.chevron" class="size-4 text-base-content/40" /></a>
+    <a routerLink="/privacy" class="setting-link"><span class="icon-chip size-9 bg-success/10"><app-icon [path]="icons.lock" class="size-4" /></span><span class="min-w-0 flex-1"><strong>Privacy</strong><small>What stays in your browser and what the host can receive</small></span><app-icon [path]="icons.chevron" class="size-4 text-base-content/40" /></a>
+    <a routerLink="/terms" class="setting-link"><span class="icon-chip size-9 bg-base-content/5"><app-icon [path]="icons.check" class="size-4" /></span><span class="min-w-0 flex-1"><strong>Terms of use</strong><small>Current scope and important limitations</small></span><app-icon [path]="icons.chevron" class="size-4 text-base-content/40" /></a>
+  </section>
+
+  <section class="panel reveal settings-footnote" style="--i: 5">
     <div class="flex items-start gap-3">
       <img src="logo-mark.svg" alt="" class="size-11 rounded-[.9rem]" />
       <div class="min-w-0 flex-1">
@@ -106,3 +147,49 @@
     </div>
   </section>
 </div>
+
+@if (dataDialog(); as dialog) {
+  <div class="data-backdrop" role="dialog" aria-modal="true" [attr.aria-labelledby]="dialog + '-data-title'" (click)="closeDataDialog()">
+    <section class="data-dialog glass-surface" (click)="$event.stopPropagation()">
+      <header class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-widest text-base-content/45">Privacy &amp; data</p>
+          <h2 [id]="dialog + '-data-title'" class="mt-1 text-xl font-semibold">
+            {{ dialog === 'export' ? 'Create encrypted backup' : dialog === 'restore' ? 'Restore your backup' : 'Clear everything?' }}
+          </h2>
+        </div>
+        <button type="button" class="btn btn-ghost btn-circle btn-sm" aria-label="Close" [disabled]="dataBusy()" (click)="closeDataDialog()"><app-icon [path]="icons.close" class="size-4" /></button>
+      </header>
+
+      @if (dialog === 'export') {
+        <form class="mt-5" (submit)="createBackup($event)">
+          <p class="text-sm leading-relaxed text-base-content/60">Choose a password you will remember. It encrypts the file on this device and is never stored. A lost password cannot be recovered.</p>
+          <label class="mt-4 block text-sm font-medium" for="backup-password">Backup password</label>
+          <input id="backup-password" class="input mt-2 w-full rounded-xl" type="password" minlength="8" autocomplete="new-password" required [value]="backupPassword()" (input)="backupPassword.set($any($event.target).value)" />
+          <label class="mt-4 block text-sm font-medium" for="backup-password-confirm">Confirm password</label>
+          <input id="backup-password-confirm" class="input mt-2 w-full rounded-xl" type="password" minlength="8" autocomplete="new-password" required [value]="confirmPassword()" (input)="confirmPassword.set($any($event.target).value)" />
+          @if (dataError()) { <p class="mt-3 text-sm text-error" role="alert">{{ dataError() }}</p> }
+          <footer class="mt-6 flex gap-3"><button type="button" class="btn btn-ghost rounded-full" [disabled]="dataBusy()" (click)="closeDataDialog()">Cancel</button><button type="submit" class="btn btn-primary min-w-0 flex-1 rounded-full" [disabled]="dataBusy() || backupPassword().length < 8">{{ dataBusy() ? 'Encrypting…' : 'Download backup' }}</button></footer>
+        </form>
+      } @else if (dialog === 'restore') {
+        <form class="mt-5" (submit)="restoreBackup($event)">
+          <div class="rounded-xl bg-warning/10 p-3 text-sm leading-relaxed"><strong>This replaces current local data.</strong> Create a backup of this browser first if you may need it later.</div>
+          <p class="mt-4 truncate text-sm font-medium">{{ restoreFile()?.name }}</p>
+          <p class="mt-1 text-xs text-base-content/50">{{ ((restoreFile()?.size || 0) / 1024 / 1024).toFixed(1) }} MB encrypted file</p>
+          <label class="mt-4 block text-sm font-medium" for="restore-password">Backup password</label>
+          <input id="restore-password" class="input mt-2 w-full rounded-xl" type="password" autocomplete="current-password" required [value]="backupPassword()" (input)="backupPassword.set($any($event.target).value)" />
+          @if (dataError()) { <p class="mt-3 text-sm text-error" role="alert">{{ dataError() }}</p> }
+          <footer class="mt-6 flex gap-3"><button type="button" class="btn btn-ghost rounded-full" [disabled]="dataBusy()" (click)="closeDataDialog()">Cancel</button><button type="submit" class="btn btn-primary min-w-0 flex-1 rounded-full" [disabled]="dataBusy() || !backupPassword()">{{ dataBusy() ? 'Checking backup…' : 'Restore backup' }}</button></footer>
+        </form>
+      } @else {
+        <div class="mt-5">
+          <div class="rounded-xl bg-error/10 p-3 text-sm leading-relaxed"><strong>This cannot be undone.</strong> Every locally stored statement, correction, transfer decision, budget and profile will be removed from this browser.</div>
+          <label class="mt-4 block text-sm font-medium" for="clear-confirmation">Type <strong>CLEAR</strong> to continue</label>
+          <input id="clear-confirmation" class="input mt-2 w-full rounded-xl" autocomplete="off" [value]="clearPhrase()" (input)="clearPhrase.set($any($event.target).value)" />
+          @if (dataError()) { <p class="mt-3 text-sm text-error" role="alert">{{ dataError() }}</p> }
+          <footer class="mt-6 flex gap-3"><button type="button" class="btn btn-ghost rounded-full" [disabled]="dataBusy()" (click)="closeDataDialog()">Cancel</button><button type="button" class="btn btn-error min-w-0 flex-1 rounded-full" [disabled]="dataBusy() || clearPhrase() !== 'CLEAR'" (click)="clearAllData()">{{ dataBusy() ? 'Clearing…' : 'Clear all data' }}</button></footer>
+        </div>
+      }
+    </section>
+  </div>
+}

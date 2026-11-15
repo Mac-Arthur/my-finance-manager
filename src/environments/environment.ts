@@ -1,6 +1,7 @@
 /** Public client configuration only. Never put credentials or AI API keys here. */
 export const environment = {
   appName: 'myAvailable',
+  appVersion: '0.4.0',
   storageVersion: 1,
   maxStatementBytes: 25 * 1024 * 1024, // a year of bank statements can be large
   maxStatements: 24,

@@ -1,0 +1,9 @@
+:host { display: block; }
+.legal-shell { width: min(100% - 2rem, 52rem); min-height: 100dvh; margin-inline: auto; }
+.legal-card { margin-top: 2rem; border-radius: var(--radius-box); padding: clamp(1.25rem, 4vw, 3rem); }
+.legal-kicker { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .16em; color: color-mix(in oklab, var(--color-base-content) 48%, transparent); }
+h1 { max-width: 18ch; margin-top: .5rem; font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 650; line-height: 1.08; letter-spacing: -.035em; }
+.legal-intro { max-width: 42rem; margin-top: 1rem; font-size: .875rem; line-height: 1.7; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); }
+h2 { margin-top: 2rem; font-size: 1rem; font-weight: 700; }
+h2 + p { margin-top: .45rem; font-size: .875rem; line-height: 1.75; color: color-mix(in oklab, var(--color-base-content) 64%, transparent); }
+@media (max-width: 36rem) { .legal-shell { width: min(100% - 1.25rem, 52rem); } .legal-card { margin-top: 1rem; } }

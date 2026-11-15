@@ -1,6 +1,6 @@
 <header class="reveal mt-2 mb-7 flex flex-wrap items-center justify-between gap-4">
   <div><p class="mb-2 text-xs font-medium uppercase tracking-widest text-base-content/60">Your money, in one place</p><h1 class="text-2xl font-semibold tracking-tight">Statements</h1><p class="mt-2 text-sm text-base-content/60">Start with the last three months. Add more whenever you're ready.</p></div>
-  <a routerLink="/home" class="btn btn-ghost btn-sm rounded-full border border-base-content/10">Go to dashboard <app-icon [path]="icons.chevron" class="size-4" /></a>
+  <div class="flex flex-wrap gap-2"><a routerLink="/help" fragment="supported" class="btn btn-ghost btn-sm rounded-full border border-base-content/10">What works?</a><a routerLink="/home" class="btn btn-ghost btn-sm rounded-full border border-base-content/10">Go to dashboard <app-icon [path]="icons.chevron" class="size-4" /></a></div>
 </header>
 <div class="grid items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
   <app-statement-upload (imported)="imported($event)" />
@@ -30,7 +30,8 @@
     <span class="icon-chip bg-primary/15"><app-icon [path]="icons.sparkles" class="size-5" /></span>
     <h2 class="mt-4 font-semibold">A home for your history</h2>
     <ol class="mt-5 space-y-5 text-sm"><li><p class="font-medium">01 · Add your statements</p><p class="mt-1 text-base-content/60">Import a PDF or CSV from your wallet, one file at a time.</p></li><li><p class="font-medium">02 · We sort the transactions</p><p class="mt-1 text-base-content/60">Each one gets a suggested category, and your own transfers are spotted.</p></li><li><p class="font-medium">03 · See the bigger picture</p><p class="mt-1 text-base-content/60">Your dashboard will fill with your confirmed transactions.</p></li></ol>
-    <p class="mt-6 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed">Local analysis reads supported PDF tables and CSV files on this device. It simulates the analysis workflow using rules; no AI service receives your files. Scanned or unsupported PDFs need a CSV export.</p>
+    <p class="mt-6 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed">Local analysis reads supported PDF tables and CSV files on this device. No AI service receives your files. Scanned or unsupported PDFs need a CSV export.</p>
+  <a routerLink="/help" fragment="troubleshooting" class="mt-4 block text-xs font-medium underline underline-offset-4">Import help &amp; troubleshooting</a>
   <a href="templates/statement.csv" download class="mt-4 inline-block text-xs font-medium underline underline-offset-4">Download the CSV column template</a>
   </aside>
 </div>

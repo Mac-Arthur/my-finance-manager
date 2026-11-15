@@ -24,7 +24,7 @@ Run the build and the tests before calling anything done.
 - Tailwind v4 (via `.postcssrc.json`) plus daisyUI 5. Two custom themes live in `src/styles.css`. Built-in daisyUI themes are disabled.
 - Money is stored as **integer pesewas** (`amountMinor`) in analysis drafts, and as cedis (`number`) in `Transaction`. Format money only with `MoneyPipe` / `formatMoney` (`src/shared/money.ts`) and animate numbers with the `CountUp` directive. Never hand-format "GH₵".
 - Icons: 24×24 stroke paths in `src/shared/icons.ts`, drawn with `<app-icon [path]="icons.x" class="size-4" />`. Category icons live in `src/data/categories.ts`.
-- Persistence: statements and confirmed drafts in IndexedDB (`mysika` database, `statements` store); the profile in `localStorage['mysika.profile.v1']`; the theme in `localStorage['theme']`; budgets and goals in localStorage.
+- Persistence: statements and confirmed drafts in IndexedDB (`mysika` database, `statements` store); the profile in `localStorage['mysika.profile.v1']`; the theme in `localStorage['theme']`; budgets, goals, transfer decisions and category corrections/rules in localStorage.
 - `src/environments/environment.ts` is public config (file limits: 25 MB, 400 pages). Never put secrets there.
 
 ## Architecture: from file to dashboard
@@ -47,6 +47,8 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
 - `ImportLoader` (`src/components/import-loader/`) is the full-screen animation. Stages: reading → extracting → sorting → building → done. They are deliberately paced in `runImport` (`pause()` calls) and show real numbers from `importSummary`.
 - `StatementReview` only appears when something needs a person: no account label, a clash with earlier imports, or more than 5% of balances broken.
 - Password-protected PDFs: `PasswordRequiredError` sets `passwordRequest`, the Statements page shows the unlock dialog, then `unlock(id, password)` runs. The password is passed straight to pdf.js and dropped.
+- Encrypted backup lives in `src/services/backup/backup.ts`. It serializes statement Blobs plus the allow-listed local settings, derives an AES-256-GCM key with PBKDF2-SHA-256 (310,000 iterations), and validates the full decrypted payload before replacing data. Backup passwords are never stored. Restore rolls back if applying local settings fails.
+- Public trust routes live at `/help`, `/privacy` and `/terms`. The Help page is the source of truth for user-facing format support and troubleshooting. Keep unsupported providers explicit, never ask users to attach statements to a public support report, and keep `environment.appVersion` aligned with `package.json`.
 
 ## Statement pipeline: rules learned the hard way
 
@@ -72,6 +74,7 @@ ledgerTransactions(confirmed drafts) → Finance signals     ledger.ts, src/serv
   5. `transfers` as the fallback.
 
   Add keywords from real statements and add a test for each.
+- **User category corrections never rewrite the confirmed draft.** `category-corrections.ts` overlays an exact transaction correction first, then a same-counterparty/same-direction rule. Confirmed cross-account transfer matches win last. Removing an overlay restores the statement suggestion.
 - Rows with no narrative (month-end interest) become "Bank credit" or "Bank debit". Don't reject them.
 - Account label: MoMo gives `MTN MoMo ••1234`; banks give `<Bank> ••1234`, with the bank name from the `BANKS` list in `pdf-table.ts`.
 - **Multiple accounts can coexist.** `Transaction.accountKey` keeps provider IDs and balances scoped to their source account. `findTransferCandidates` pairs exact-value, nearby, cross-account rows only when both select each other as the nearest counterpart. Strong unique pairs are automatic; uncertain pairs require confirmation. "All accounts" unlocks after pending pairs are handled and sums each account's latest known balance.
@@ -123,10 +126,9 @@ The look follows a reference design: **soft, warm, glassy, rounded, calm**. Ligh
 
 ## Known gaps and roadmap
 
-1. "Teach it once" category rules per counterparty, and editing categories after import (Transactions page).
-2. Readers for Telecel Cash and AT Money, and validation against more real bank layouts (GCB, Ecobank, Fidelity…).
-3. OCR for scanned PDFs, and an optional, consented AI fallback whose output is checked by the running balance.
-4. Optional encrypted backup and sync, an installable app (PWA), and monthly summaries.
-5. Insights: fee leak, loan churn, net betting, money sent to people, round trips.
+1. Readers for Telecel Cash and AT Money, and validation against more real bank layouts (GCB, Ecobank, Fidelity…).
+2. OCR for scanned PDFs, and an optional, consented AI fallback whose output is checked by the running balance.
+3. Optional encrypted cross-device sync, an installable app (PWA), and monthly summaries.
+4. Insights: fee leak, loan churn, net betting, money sent to people, round trips.
 
 `README.md` and `docs/statement-analysis.md` predate the layout engine, password support and one-step import. Where they disagree, trust this file and the code, and update them when you touch those areas.
