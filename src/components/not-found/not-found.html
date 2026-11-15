@@ -1,1 +1,55 @@
-<p>not-found works!</p>
+<main class="not-found-shell">
+  <nav class="not-found-nav">
+    <a routerLink="/" class="brand" aria-label="myAvailable home">
+      <img src="logo-mark.svg" alt="" />
+      <span>my<span>Available</span></span>
+    </a>
+    <a routerLink="/help" class="help-link">Need help?</a>
+  </nav>
+
+  <section class="not-found-card" aria-labelledby="not-found-title">
+    <div class="copy">
+      <p class="eyebrow"><span aria-hidden="true"></span> Lost transaction</p>
+      <h1 id="not-found-title">This page is<br />not available.</h1>
+      <p class="lede">The link may be old, mistyped or moved somewhere safer. Your statements and saved data have not been changed.</p>
+      <div class="actions">
+        <a [routerLink]="destination()" class="primary-action">
+          {{ destinationLabel() }}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </a>
+        <a routerLink="/statements" class="secondary-action">Open statements</a>
+      </div>
+      <p class="safe-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.2 7 10 4.2-1.8 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+        Nothing was imported, removed or edited.
+      </p>
+    </div>
+
+    <div class="visual" aria-hidden="true">
+      <div class="orbit orbit-one"></div>
+      <div class="orbit orbit-two"></div>
+      <div class="receipt receipt-back">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="receipt receipt-front">
+        <div class="receipt-mark"><img src="logo-mark.svg" alt="" /></div>
+        <p>Page reference</p>
+        <strong>404</strong>
+        <div class="receipt-line"><span>Route found</span><b>0</b></div>
+        <div class="receipt-line"><span>Your data</span><b>Safe</b></div>
+        <div class="receipt-dashes"></div>
+        <small>Let’s get you somewhere useful.</small>
+      </div>
+      <span class="float-pill float-pill-one">Not a money problem</span>
+      <span class="float-pill float-pill-two">Just a missing page</span>
+    </div>
+  </section>
+
+  <footer class="not-found-footer">
+    <span>myAvailable</span>
+    <span class="footer-line" aria-hidden="true"></span>
+    <a routerLink="/privacy">Privacy</a>
+    <a routerLink="/terms">Terms</a>
+    <a href="https://mac-arthur.netlify.app/" target="_blank" rel="author noopener noreferrer">Built by Mac-Arthur ↗</a>
+  </footer>
+</main>

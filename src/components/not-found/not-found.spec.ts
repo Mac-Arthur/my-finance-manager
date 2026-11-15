@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { NotFound } from './not-found';
+import { provideRouter } from '@angular/router';
 
 describe('NotFound', () => {
   let component: NotFound;
@@ -8,7 +9,8 @@ describe('NotFound', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [NotFound]
+      imports: [NotFound],
+      providers: [provideRouter([])],
     })
     .compileComponents();
 
@@ -19,5 +21,10 @@ describe('NotFound', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('offers a safe way back into the app', () => {
+    expect(fixture.nativeElement.querySelector('h1').textContent).toContain('not available');
+    expect(fixture.nativeElement.querySelector('.primary-action').getAttribute('href')).toBe('/welcome');
   });
 });

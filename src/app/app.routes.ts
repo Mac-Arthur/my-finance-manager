@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { Layout } from '../components/layout/layout';
 import { setupGuard, welcomeGuard } from '../services/onboarding/onboarding.guard';
-import { NotFound } from '../components/not-found/not-found';
 
 export const routes: Routes = [
   { path: 'help', title: 'Help & supported statements · myAvailable', loadComponent: () => import('../pages/support/support').then(m => m.Support) },
@@ -56,5 +55,5 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', component: NotFound },
+  { path: '**', title: 'Page not found · myAvailable', loadComponent: () => import('../components/not-found/not-found').then(m => m.NotFound) },
 ];
