@@ -1,2 +1,0 @@
-# Angular client-side routes must return the application shell on a direct visit.
-/* /index.html 200
