@@ -8,6 +8,11 @@ function file(name: string, contents: string) {
   return { name, size: bytes.byteLength, arrayBuffer: async () => bytes.buffer } as File;
 }
 
+function binaryFile(name: string, bytes: number[]) {
+  const data = new Uint8Array(bytes);
+  return { name, size: data.byteLength, arrayBuffer: async () => data.buffer } as File;
+}
+
 describe('Local statement inbox', () => {
   let service: Statements;
   beforeEach(() => {
@@ -35,6 +40,11 @@ describe('Local statement inbox', () => {
     expect(service.items()).toHaveLength(1);
   });
 
+  it('accepts an XLSX workbook', async () => {
+    expect(await service.save(binaryFile('vodafone.xlsx', [0x50, 0x4b, 0x03, 0x04]))).toBe(true);
+    expect(service.items()[0].kind).toBe('xlsx');
+  });
+
   it('explains that statement imports need a secure browser connection', async () => {
     vi.stubGlobal('crypto', {});
     expect(await service.save(file('statement.pdf', '%PDF-1.7\nTest fixture'))).toBe(false);
@@ -44,7 +54,7 @@ describe('Local statement inbox', () => {
   });
 
   it('rejects invalid, empty, unsupported and oversized files', async () => {
-    for (const input of [file('bad.pdf', 'not a pdf'), file('bad.csv', 'no columns'), file('empty.csv', ''), file('bad.exe', 'x'), { name: 'large.pdf', size: 11 * 1024 * 1024 } as File]) {
+    for (const input of [file('bad.pdf', 'not a pdf'), file('bad.csv', 'no columns'), file('bad.xlsx', 'not a workbook'), file('empty.csv', ''), file('bad.exe', 'x'), { name: 'large.pdf', size: 26 * 1024 * 1024 } as File]) {
       expect(await service.save(input)).toBe(false);
       expect(service.error()).toBeTruthy();
       expect(service.busy()).toBe(false);

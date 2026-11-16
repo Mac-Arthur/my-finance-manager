@@ -2,28 +2,11 @@ import Papa from 'papaparse';
 import { AnalysisDraft, AnalysisRow } from '../../models/analysis';
 import { CurrencyCode } from '../../models/finance';
 import { CATEGORIES } from '../../data/categories';
-
-export type Field = 'date' | 'time' | 'name' | 'amount' | 'debit' | 'credit' | 'fee' | 'balance' | 'id' | 'reference' | 'currency' | 'type' | 'tax';
-/** Headers banks print that we recognise as column boundaries but don't import. */
-const IGNORED = ['valuedate', 'cheque', 'chequenumber', 'chequeno', 'chqno', 'instrumentno', 'instrumentnumber', 'branch', 'channel', 'sn', 'no'];
-export const isIgnoredHeader = (value: string) => IGNORED.includes(value.toLowerCase().replace(/[^a-z]/g, ''));
-const aliases: Record<Field, string[]> = {
-  type: ['paymenttype', 'type', 'transactiontype'], tax: ['tax'],
-  date: ['date', 'datetime', 'transactiondate', 'transactiondatetime', 'trandate', 'txndate', 'postdate', 'postingdate', 'bookingdate', 'transdate'], time: ['time', 'transactiontime'],
-  name: ['name', 'description', 'details', 'recipient', 'counterparty', 'transactiondetails', 'narrative', 'particulars', 'remarks', 'transactiondescription', 'narration'],
-  amount: ['amount', 'signedamount', 'transactionamount'], debit: ['debit', 'debits', 'moneyout', 'paidout', 'withdrawal', 'withdrawals', 'debitamount', 'dr'],
-  credit: ['credit', 'credits', 'moneyin', 'paidin', 'deposit', 'deposits', 'creditamount', 'cr'], fee: ['fee', 'fees', 'charge', 'charges'],
-  balance: ['balance', 'runningbalance', 'balanceafter', 'closingbalance', 'availablebalance', 'ledgerbalance'], id: ['id', 'transactionid', 'transactionno', 'transactionnumber'],
-  reference: ['reference', 'ref', 'refno', 'referenceno', 'referencenumber', 'transactionreference'], currency: ['currency'],
-};
-export function fieldFor(value: string): Field | undefined {
-  const key = value.toLowerCase().replace(/[^a-z]/g, '').replace(/ghs$/, '');
-  return (Object.keys(aliases) as Field[]).find(field => aliases[field].includes(key));
-}
-export function validHeaders(fields: (Field | undefined)[]) {
-  return fields.includes('date') && fields.includes('name') &&
-    (fields.includes('amount') || (fields.includes('credit') && fields.includes('debit')));
-}
+import { inferStatementTable, mappedStatementTable, mappingRequest } from './adaptive-table';
+import { ColumnMapping, MappingRequiredError } from './column-mapping';
+export type { Field } from './statement-fields';
+export { fieldFor, isIgnoredHeader, validHeaders } from './statement-fields';
+import { Field, fieldFor, validHeaders } from './statement-fields';
 
 /** Monetary values are validated and stored as integer minor units. No locale guessing. */
 export const SUPPORTED_CURRENCIES: CurrencyCode[] = ['GHS', 'USD', 'GBP', 'EUR', 'CAD', 'AUD', 'NGN', 'KES', 'ZAR'];
@@ -103,7 +86,7 @@ function mentionsOwner(text: string, owner?: string) {
 const RULES: [RegExp, AnalysisRow['category']][] = [
   [/service charge|\bcharges?\b|\bcommission\b|\blevy\b|e-levy|maintenance fee|\bsms (fee|alert)|digital services|ledger fee|\bcot\b|\bstamp duty\b/i, 'charges'],
   [/\b(sportybet|betway|betting|bet9ja|msport|1xbet|soccarbet)\b/i, 'betting'],
-  [/\b(airtime|bundle|data)\b|airtimevendor/i, 'airtime'],
+  [/\b(airtime|bundle|data)\b|airtime\s*vendor/i, 'airtime'],
   [/\b(ecg|electricity|rent|water bill|dstv|gotv|bills\.inv|ghana water)\b/i, 'bills'],
   [/\b(uber|bolt|yango|taxi|trotro|fuel|ride|okada|motor|transport|fare)\b/i, 'transport'],
   [/\b(food|foodstuff|coffee|restaurant|lunch|breakfast|supper|dinner|groceries|waakye|fish|pie|drinks?|catering|fast food|chop|kenkey|jollof|starbites|tropiks)\b/i, 'food'],
@@ -186,10 +169,41 @@ export function checkBalances(rows: AnalysisRow[]): AnalysisDraft['balanceCheck'
   return checked ? { checked, breaks: checked - Math.max(forward, backward) } : undefined;
 }
 
-export function parseCsv(text: string): AnalysisDraft {
+export function parseCsv(text: string, mapping?: ColumnMapping): AnalysisDraft {
   const result = Papa.parse<string[]>(text.replace(/^\uFEFF/, ''), { skipEmptyLines: 'greedy' });
   if (result.errors.length) throw new Error(`CSV could not be read: ${result.errors[0].message}`);
-  return rowsToDraft(result.data, text);
+  if (mapping) {
+    if (mapping.source !== 'csv') throw new Error('This column mapping belongs to a different file type.');
+    const table = mappedStatementTable(result.data, mapping, dateWorks);
+    const draft = rowsToDraft(table, text);
+    draft.warnings.push('Columns were mapped manually. Compare the preview with the original before confirming.');
+    return draft;
+  }
+  let inferred: ReturnType<typeof inferTable>;
+  try { inferred = inferTable(result.data); }
+  catch (error) {
+    const request = mappingRequest(result.data, 'csv');
+    if (request && error instanceof Error && /identify|interpretations/i.test(error.message)) throw new MappingRequiredError(request);
+    throw error;
+  }
+  const draft = rowsToDraft(inferred.table, text);
+  addInferenceWarning(draft, inferred);
+  return draft;
+}
+
+export function dateWorks(value: string) {
+  try { parseDate(value, 'day-first'); return true; }
+  catch { try { parseDate(value, 'month-first'); return true; } catch { return false; } }
+}
+
+export function inferTable(rows: string[][]) {
+  const moneyWorks = (value: string) => { try { moneyMinor(value); return true; } catch { return false; } };
+  return inferStatementTable(rows, dateWorks, moneyWorks);
+}
+
+export function addInferenceWarning(draft: AnalysisDraft, inferred: ReturnType<typeof inferTable>) {
+  if (inferred.headerIndex || inferred.headerDepth === 2) draft.warnings.push(`The transaction table starts at row ${inferred.headerIndex + 1}${inferred.headerDepth === 2 ? ' and uses a two-line heading' : ''}. Earlier title rows were ignored.`);
+  if (inferred.inferred.length) draft.warnings.push(`Adaptive column detection inferred ${inferred.inferred.map(item => `“${item.column}” as ${item.field}`).join(', ')} from the column values. Verify these columns in the preview.`);
 }
 
 export function validateDraft(draft: AnalysisDraft, requireAccount = true) {

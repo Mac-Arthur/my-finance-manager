@@ -29,8 +29,8 @@
   <aside class="glass-surface rounded-box p-6">
     <span class="icon-chip bg-primary/15"><app-icon [path]="icons.sparkles" class="size-5" /></span>
     <h2 class="mt-4 font-semibold">A home for your history</h2>
-    <ol class="mt-5 space-y-5 text-sm"><li><p class="font-medium">01 · Add your statements</p><p class="mt-1 text-base-content/60">Import a PDF or CSV from your wallet, one file at a time.</p></li><li><p class="font-medium">02 · We sort the transactions</p><p class="mt-1 text-base-content/60">Each one gets a suggested category, and your own transfers are spotted.</p></li><li><p class="font-medium">03 · See the bigger picture</p><p class="mt-1 text-base-content/60">Your dashboard will fill with your confirmed transactions.</p></li></ol>
-    <p class="mt-6 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed">Local analysis reads supported PDF tables and CSV files on this device. No AI service receives your files. Scanned or unsupported PDFs need a CSV export.</p>
+    <ol class="mt-5 space-y-5 text-sm"><li><p class="font-medium">01 · Add your statements</p><p class="mt-1 text-base-content/60">Import a PDF, CSV or XLSX from your wallet, one file at a time.</p></li><li><p class="font-medium">02 · We sort the transactions</p><p class="mt-1 text-base-content/60">Each one gets a suggested category, and your own transfers are spotted.</p></li><li><p class="font-medium">03 · See the bigger picture</p><p class="mt-1 text-base-content/60">Your dashboard will fill with your confirmed transactions.</p></li></ol>
+    <p class="mt-6 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed">Local analysis reads supported PDF tables, CSV files and Excel workbooks on this device. No AI service receives your files. Scanned PDFs still need a searchable export.</p>
   <a routerLink="/help" fragment="troubleshooting" class="mt-4 block text-xs font-medium underline underline-offset-4">Import help &amp; troubleshooting</a>
   <a href="templates/statement.csv" download class="mt-4 inline-block text-xs font-medium underline underline-offset-4">Download the CSV column template</a>
   </aside>
@@ -39,6 +39,9 @@
 @if (store.analysingId() && !store.importing()) { <div class="glass-surface mt-5 rounded-box p-5" role="status" aria-live="polite"><span class="loading loading-spinner loading-sm mr-2" aria-hidden="true"></span>{{ store.progress() }}</div> }
 @if (review(); as item) {
   @if (item.draft; as draft) { <app-statement-review [draft]="draft" [busy]="store.busy()" (close)="reviewId.set(null)" (confirm)="confirm($event)" /> }
+}
+@if (mapping(); as item) {
+  @if (item.mappingRequest; as request) { <app-column-mapper [request]="request" [busy]="store.busy()" (close)="mappingId.set(null)" (mapped)="applyMapping($event)" /> }
 }
 <section class="mt-8" aria-labelledby="library-title">
   <div class="mb-4 flex items-center gap-3"><h2 id="library-title" class="font-semibold">Your statement library</h2><span class="chip bg-base-content/5">{{ store.items().length }} {{ store.items().length === 1 ? 'file' : 'files' }}</span></div>
@@ -50,9 +53,10 @@
         <li class="glass-surface flex flex-wrap items-center gap-4 rounded-2xl p-4">
           <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-xs font-semibold uppercase">{{ item.kind }}</span>
           <div class="min-w-0 flex-1"><p class="truncate text-sm font-medium">{{ item.name }}</p><p class="mt-1 text-xs text-base-content/65">Added {{ item.addedAt | date: 'd MMM y, h:mm a' }} · {{ (item.size / 1024).toFixed(1) }} KB</p></div>
-          <span class="chip bg-warning/10 text-base-content/75">{{ item.status === 'confirmed' ? 'Imported' : item.status === 'ready' ? 'Ready for review' : item.status === 'error' ? 'Needs attention' : 'Awaiting analysis' }}</span>
+          <span class="chip bg-warning/10 text-base-content/75">{{ item.status === 'confirmed' ? 'Imported' : item.status === 'ready' ? 'Ready for review' : item.status === 'mapping' ? 'Map columns' : item.status === 'error' ? 'Needs attention' : 'Awaiting analysis' }}</span>
           <div class="flex flex-wrap gap-1">
             @if (item.status === 'ready') { <button type="button" class="btn btn-primary btn-sm rounded-full" [disabled]="store.busy()" (click)="reviewId.set(item.id)">Review results</button> }
+            @else if (item.status === 'mapping') { <button type="button" class="btn btn-primary btn-sm rounded-full" [disabled]="store.busy()" (click)="mappingId.set(item.id)">Map columns</button> }
             @else if (item.status !== 'confirmed') { <button type="button" class="btn btn-primary btn-sm rounded-full" [disabled]="store.busy()" (click)="analyse(item.id)">{{ store.analysingId() === item.id ? 'Analysing…' : item.status === 'error' ? 'Try analysis again' : 'Analyse statement' }}</button> }
             @else { <a routerLink="/home" class="btn btn-sm btn-ghost rounded-full">View dashboard</a> }
             <button class="btn btn-ghost btn-sm rounded-full" type="button" (click)="store.download(item)" [attr.aria-label]="'Download ' + item.name">Download</button>

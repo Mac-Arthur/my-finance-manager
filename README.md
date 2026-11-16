@@ -19,10 +19,10 @@ npm test -- --watch=false
 ## Current milestone: local statement analysis
 
 - Welcome, local profile setup, and the statement inbox use the existing light/dark glass styling.
-- PDF and CSV statements can be saved, analysed, reviewed and confirmed. Confirmed transactions populate the dashboard, transactions and reports, and survive reloads.
+- PDF, CSV and XLSX statements can be saved, analysed, reviewed and confirmed. Confirmed transactions populate the dashboard, transactions and reports, and survive reloads.
 - Analysis is local extraction plus category rules, simulating an AI-assisted workflow. No AI endpoint or API key is connected, and files stay on this device.
-- Supported PDFs are searchable tables with recognisable column headers. Scans, encrypted PDFs and unsupported layouts fail explicitly. A CSV column template is available in Statements.
-- Review amounts, fees, dates, descriptions and categories before confirming. Only GHS and one wallet at a time are supported in this milestone.
+- The adaptive reader searches CSV/XLSX files for transaction tables, understands common heading synonyms and two-line headings, and offers manual column mapping when the layout remains ambiguous. Searchable PDFs use provider adapters plus a semantic table reader; scans still need OCR.
+- Review amounts, fees, dates, descriptions and categories before confirming. Multiple currencies are supported, with one currency per account.
 - Duplicate files and overlapping provider transaction IDs are handled; ambiguous overlaps without IDs are blocked. Removing a source also updates financial totals.
 - Profile setup is not authentication. There is no password, cloud synchronization or online account yet. Keep original files: clearing site data removes local records.
 - See [statement analysis details](docs/statement-analysis.md) for supported formats, limitations and the lightweight backend direction.
@@ -37,7 +37,7 @@ npm test -- --watch=false
 
 ## Next milestone
 
-Validate the user's actual provider layout, add stronger statement coverage and balance reconciliation, and replace the local analysis engine with a lightweight server-side AI adapter when ready. Keep all API credentials on the server, never in Angular environment files.
+Add local OCR for scanned statements, extend the guided mapping fallback to spatial PDF columns, and collect consent-based format fingerprints during beta testing. Keep all API credentials on the server if a hosted model is introduced later.
 
 ## Verification
 

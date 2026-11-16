@@ -1,25 +1,26 @@
 import { AnalysisDraft } from '../../models/analysis';
 import { PasswordRequiredError, STATEMENT_ANALYSER } from '../analysis/statement-analyser';
 import { assertCompatible } from '../analysis/ledger';
-import { validateDraft } from '../analysis/parse-statement';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { CATEGORIES } from '../../data/categories';
 import { CategoryId, CurrencyCode } from '../../models/finance';
+import { ColumnMapping, ColumnMappingRequest, MappingRequiredError } from '../analysis/column-mapping';
 
 export interface SavedStatement {
   id: string;
   name: string;
   size: number;
-  kind: 'pdf' | 'csv';
+  kind: 'pdf' | 'csv' | 'xlsx';
   addedAt: string;
-  status: 'awaiting-analysis' | 'ready' | 'confirmed' | 'error';
+  status: 'awaiting-analysis' | 'mapping' | 'ready' | 'confirmed' | 'error';
   draft?: AnalysisDraft;
   analysisError?: string;
+  mappingRequest?: ColumnMappingRequest;
   file: Blob;
 }
 
-export type ImportOutcome = 'imported' | 'review' | 'error' | 'password';
+export type ImportOutcome = 'imported' | 'mapping' | 'review' | 'error' | 'password';
 export type ImportStage = 'reading' | 'extracting' | 'sorting' | 'building' | 'done';
 export interface ImportSummary {
   count: number; from: string; to: string; moneyIn: number; moneyOut: number; balance: number | null;
@@ -129,7 +130,7 @@ export class Statements {
 
   private async runImport(id: string, password?: string): Promise<{ id: string; outcome: ImportOutcome }> {
     const started = Date.now();
-    if (!await this.analyse(id, password)) return { id, outcome: this.passwordRequest()?.id === id ? 'password' : 'error' };
+    if (!await this.analyse(id, password)) return { id, outcome: this.passwordRequest()?.id === id ? 'password' : this.items().find(item => item.id === id)?.status === 'mapping' ? 'mapping' : 'error' };
     const draft = structuredClone(this.items().find(item => item.id === id)?.draft);
     if (!draft) return { id, outcome: 'error' };
     await pause(1400 - (Date.now() - started));
@@ -142,6 +143,7 @@ export class Statements {
     // (airtime bought on credit, same-minute entries). Above 5%, a person checks before anything is imported.
     if (draft.balanceCheck && draft.balanceCheck.breaks > Math.max(2, draft.rows.length * 0.05)) return { id, outcome: 'review' };
     if (draft.warnings.some(warning => warning.startsWith('No currency label was found'))) return { id, outcome: 'review' };
+    if (draft.warnings.some(warning => warning.startsWith('Adaptive column detection inferred'))) return { id, outcome: 'review' };
     if (!draft.account.trim()) {
       // Without a detected wallet, only the very first import can safely get a default label.
       if (this.confirmed().length) return { id, outcome: 'review' };
@@ -162,7 +164,7 @@ export class Statements {
     this.progress.set('Reading your file…');
     try {
       const kind = file.name.split('.').pop()?.toLowerCase();
-      if (kind !== 'pdf' && kind !== 'csv') throw new Error('Choose a PDF or CSV statement.');
+      if (kind !== 'pdf' && kind !== 'csv' && kind !== 'xlsx') throw new Error('Choose a PDF, CSV or XLSX statement.');
       if (!file.size) throw new Error('This file is empty. Choose another statement.');
       if (file.size > environment.maxStatementBytes) throw new Error(`Choose a file smaller than ${environment.maxStatementBytes / 1024 / 1024} MB.`);
       if (!globalThis.crypto?.subtle) {
@@ -172,6 +174,7 @@ export class Statements {
       const start = new TextDecoder().decode(bytes.slice(0, 1024));
       if (kind === 'pdf' && !start.startsWith('%PDF-')) throw new Error('This file does not appear to be a PDF. Please export it again.');
       if (kind === 'csv' && (start.includes('\u0000') || !/[,;\t]/.test(start))) throw new Error('This CSV does not contain recognisable columns. Please export a CSV with column headers.');
+      if (kind === 'xlsx' && !new Uint8Array(bytes.slice(0, 2)).every((byte, index) => byte === [0x50, 0x4b][index])) throw new Error('This file does not appear to be an XLSX workbook. Please export it again.');
       this.progress.set('Checking for duplicate files…');
       const hash = await globalThis.crypto.subtle.digest('SHA-256', bytes);
       const id = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
@@ -179,7 +182,8 @@ export class Statements {
       if (existing.some(item => item.id === id)) throw new Error('This statement is already saved. You can find it below.');
       if (existing.length >= environment.maxStatements) throw new Error('Your local inbox is full. Download and remove an older file before adding another.');
       this.progress.set('Saving to this browser…');
-      const item: SavedStatement = { id, name: file.name, size: file.size, kind, addedAt: new Date().toISOString(), status: 'awaiting-analysis', file: new Blob([bytes], { type: kind === 'pdf' ? 'application/pdf' : 'text/csv' }) };
+      const type = kind === 'pdf' ? 'application/pdf' : kind === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv';
+      const item: SavedStatement = { id, name: file.name, size: file.size, kind, addedAt: new Date().toISOString(), status: 'awaiting-analysis', file: new Blob([bytes], { type }) };
       const db = await this.open();
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction('statements', 'readwrite');
@@ -204,7 +208,7 @@ export class Statements {
     this.items.set(await this.all());
   }
 
-  async analyse(id: string, password?: string): Promise<boolean> {
+  async analyse(id: string, password?: string, mapping?: ColumnMapping): Promise<boolean> {
     if (this.busy()) return false;
     const item = this.items().find(item => item.id === id);
     if (!item || item.status === 'confirmed') return false;
@@ -212,12 +216,17 @@ export class Statements {
     this.analysingId.set(id);
     this.error.set('');
     try {
-      const draft = await this.analyser.analyse({ kind: item.kind, file: item.file, password }, message => this.progress.set(message));
+      const draft = await this.analyser.analyse({ kind: item.kind, file: item.file, password, mapping }, message => this.progress.set(message));
+      const { validateDraft } = await import('../analysis/parse-statement');
       validateDraft(draft, false);
-      await this.put({ ...item, draft, status: 'ready', analysisError: undefined });
+      await this.put({ ...item, draft, status: 'ready', analysisError: undefined, mappingRequest: undefined });
       return true;
     } catch (error) {
       if (error instanceof PasswordRequiredError) this.passwordRequest.set({ id, name: item.name, incorrect: error.incorrect });
+      else if (error instanceof MappingRequiredError) {
+        await this.put({ ...item, status: 'mapping', mappingRequest: error.request, analysisError: undefined, draft: undefined });
+        return false;
+      }
       else this.fail(error);
       try { await this.put({ ...item, status: 'error', analysisError: error instanceof Error ? error.message : this.error(), draft: undefined }); }
       catch { /* Preserve the original analysis error and allow retry. */ }
@@ -232,6 +241,7 @@ export class Statements {
     this.busy.set(true);
     this.error.set('');
     try {
+      const { validateDraft } = await import('../analysis/parse-statement');
       validateDraft(draft);
       const db = await this.open();
       await new Promise<void>((resolve, reject) => {

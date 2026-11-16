@@ -1,4 +1,5 @@
 import { CategoryId, CurrencyCode } from './finance';
+import type { ColumnMapping } from '../services/analysis/column-mapping';
 
 export interface AnalysisRow {
   sourceRow: number;
@@ -23,7 +24,7 @@ export interface AnalysisDraft {
   balanceCheck?: { checked: number; breaks: number };
 }
 /** `password` unlocks protected PDFs. It lives only in memory for one read and is never stored. */
-export interface AnalysisInput { kind: 'pdf' | 'csv'; file: Blob; password?: string; }
+export interface AnalysisInput { kind: 'pdf' | 'csv' | 'xlsx'; file: Blob; password?: string; mapping?: ColumnMapping; }
 export interface AnalysisEngine {
   analyse(input: AnalysisInput, progress: (message: string) => void): Promise<AnalysisDraft>;
 }

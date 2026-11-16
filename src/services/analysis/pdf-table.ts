@@ -1,5 +1,7 @@
 import { momoPdfTable } from './momo-pdf';
-import { Field, StatementMeta, fieldFor, isIgnoredHeader, parseDate, validHeaders } from './parse-statement';
+import { officialMomoPdfTable } from './official-momo-pdf';
+import { StatementMeta, parseDate } from './parse-statement';
+import { Field, fieldFor, isIgnoredHeader, validHeaders } from './statement-fields';
 
 /** One run of text from pdf.js. `w`/`h` are width and font height when known. */
 export interface PdfCell { text: string; x: number; y: number; w?: number; h?: number; }
@@ -113,7 +115,9 @@ function meta(pages: PdfCell[][], text: string): StatementMeta {
  * follows rows that wrap over several lines and pages, and skips titles, summaries and footers.
  * Amounts that would land on a continuation line are refused rather than guessed.
  */
-export function pdfTable(pages: PdfCell[][]): { table: string[][]; text: string; meta?: StatementMeta } {
+export function pdfTable(pages: PdfCell[][]): { table: string[][]; text: string; meta?: StatementMeta; warnings?: string[] } {
+  const officialMomo = officialMomoPdfTable(pages);
+  if (officialMomo) return officialMomo;
   const momo = momoPdfTable(pages);
   if (momo) return momo;
   const table: string[][] = [];

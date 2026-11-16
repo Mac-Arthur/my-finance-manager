@@ -49,7 +49,7 @@
             @if (s.verified) { <span class="verified"><app-icon [path]="icons.check" class="size-3" [stroke]="3" /> Running balance verified</span> }
           }
         }
-        @case ('sorting') { @if (summary(); as s) { Spotting bets, airtime, food and your own transfers<br />across {{ s.categories.length }} categories } }
+        @case ('sorting') { @if (summary(); as s) { Grouping money in, spending and your own transfers<br />across {{ s.categories.length }} categories } }
         @case ('building') {
           @if (summary(); as s) { Money in <b class="text-success" [countUp]="s.moneyIn" [countUpCurrency]="s.currency" [countUpDuration]="1100"></b> · Money out <b class="text-error" [countUp]="s.moneyOut" [countUpCurrency]="s.currency" [countUpDuration]="1100"></b> }
         }

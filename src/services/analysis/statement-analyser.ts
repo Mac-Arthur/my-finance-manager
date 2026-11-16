@@ -15,7 +15,13 @@ export class LocalStatementAnalyser implements AnalysisEngine {
     const { parseCsv, rowsToDraft } = await import('./parse-statement');
     progress('Reading the statement…');
     if (input.kind === 'csv') {
-      const draft = parseCsv(await input.file.text());
+      const draft = parseCsv(await input.file.text(), input.mapping);
+      progress('Checking amounts and suggesting categories…');
+      return draft;
+    }
+    if (input.kind === 'xlsx') {
+      const { parseXlsx } = await import('./xlsx-statement');
+      const draft = parseXlsx(await input.file.arrayBuffer(), input.mapping);
       progress('Checking amounts and suggesting categories…');
       return draft;
     }
@@ -45,6 +51,7 @@ export class LocalStatementAnalyser implements AnalysisEngine {
       const { pdfTable } = await import('./pdf-table');
       const extracted = pdfTable(pages);
       const draft = rowsToDraft(extracted.table, extracted.text, extracted.meta);
+      draft.warnings.push(...(extracted.warnings ?? []));
       draft.warnings.push('PDF table extraction is experimental. Compare every row with the original before confirming.');
       return draft;
     } catch (error) {

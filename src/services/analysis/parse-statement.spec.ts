@@ -1,4 +1,5 @@
 import { categoryFor, moneyMinor, parseCsv, parseDate } from './parse-statement';
+import { MappingRequiredError } from './column-mapping';
 import { pdfTable, PdfCell } from './pdf-table';
 import { rowsToDraft } from './parse-statement';
 
@@ -18,6 +19,30 @@ describe('Statement parsing', () => {
     expect(draft.rows[0].balanceMinor).toBeNull();
     expect(draft.warnings.join()).toContain('day/month/year');
   });
+  it('infers unfamiliar date and description headings from their values', () => {
+    const draft = parseCsv('Statement export\nWhen,Who,Movement\n2026-11-01,Coffee shop,-10.50\n2026-11-02,Salary,200');
+    expect(draft.rows.map(row => row.amountMinor)).toEqual([-1050, 20000]);
+    expect(draft.rows[0].name).toBe('Coffee shop');
+    expect(draft.warnings.join()).toContain('Adaptive column detection inferred');
+    expect(draft.warnings.join()).toContain('Earlier title rows were ignored');
+  });
+  it('combines two-line spreadsheet-style headings before mapping columns', () => {
+    const draft = parseCsv('Transaction,Transaction,Money,Money\ndate,details,out,in\n2026-11-01,Coffee,10,\n2026-11-02,Refund,,5');
+    expect(draft.rows.map(row => row.amountMinor)).toEqual([-1000, 500]);
+    expect(draft.warnings.join()).toContain('two-line heading');
+  });
+  it('offers manual column mapping when an unsigned debit/credit layout is ambiguous', () => {
+    const text = 'Account activity\nWhen,Who,Out,In\n2026-11-01,Coffee,10,\n2026-11-02,Refund,,5';
+    let request;
+    try { parseCsv(text); } catch (error) {
+      expect(error).toBeInstanceOf(MappingRequiredError);
+      request = (error as MappingRequiredError).request;
+    }
+    expect(request?.headers).toEqual(['When', 'Who', 'Out', 'In']);
+    const draft = parseCsv(text, { source: 'csv', headerIndex: 1, fields: ['date', 'name', 'debit', 'credit'] });
+    expect(draft.rows.map(row => row.amountMinor)).toEqual([-1000, 500]);
+    expect(draft.warnings.join()).toContain('mapped manually');
+  });
   it('rejects ambiguous or malformed rows instead of silently dropping them', () => {
     for (const text of [
       'date,name,amount\n2026-02-30,Food,-1',
@@ -28,6 +53,9 @@ describe('Statement parsing', () => {
       'date,name,amount\n2026-11-01,Food,-1\n2026-11-02,Broken',
       'date,name,amount',
     ]) expect(() => parseCsv(text)).toThrow();
+  });
+  it('does not silently drop an amount whose transaction date is missing', () => {
+    expect(() => parseCsv('date,name,amount\n2026-11-01,Coffee,-10\n,Unplaced payment,-20')).toThrow(/amount but no supported transaction date/i);
   });
   it('detects USD and interprets numeric US dates month-first', () => {
     const draft = parseCsv('date,name,amount,currency\n11/13/2026,Coffee,$-4.25,USD');
@@ -58,6 +86,16 @@ describe('PDF table reconstruction', () => {
     const draft = rowsToDraft(table, text);
     expect(draft.rows).toHaveLength(2);
     expect(draft.rows[0].amountMinor).toBe(-1000);
+  });
+  it('recognises descriptive PDF headings it has not seen as an exact provider template', () => {
+    const { table } = pdfTable([[
+      ...line(['Effective Date', 'Merchant', 'Net Amount', 'Book Balance'], 700),
+      ...line(['2026-11-01', 'Coffee shop', '-10', '90'], 680),
+      ...line(['2026-11-02', 'Salary', '100', '190'], 660),
+    ]]);
+    const draft = rowsToDraft(table, 'GHS');
+    expect(draft.rows.map(row => row.amountMinor)).toEqual([-1000, 10000]);
+    expect(draft.balanceCheck).toEqual({ checked: 1, breaks: 0 });
   });
   it('refuses numeric continuation lines that could conceal missing transactions', () => {
     expect(() => pdfTable([[...line(['Date', 'Name', 'Amount'], 700), ...line(['2026-11-01', 'Coffee', '-10'], 680), ...line(['wrapped amount', '20.00'], 660)]])).toThrow(/wraps/);

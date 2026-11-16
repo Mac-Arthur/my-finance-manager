@@ -198,7 +198,7 @@ function validateLocalSettings(storage: Record<string, string>) {
 function validateStatement(value: SerializedStatement, ids: Set<string>): SavedStatement {
   if (!value || typeof value !== 'object' || typeof value.id !== 'string' || !value.id || ids.has(value.id) ||
     typeof value.name !== 'string' || !value.name || value.name.length > 255 || !Number.isSafeInteger(value.size) || value.size < 0 || value.size > environment.maxStatementBytes ||
-    !['pdf', 'csv'].includes(value.kind) || !validDate(value.addedAt) || !['awaiting-analysis', 'ready', 'confirmed', 'error'].includes(value.status) ||
+    !['pdf', 'csv', 'xlsx'].includes(value.kind) || !validDate(value.addedAt) || !['awaiting-analysis', 'mapping', 'ready', 'confirmed', 'error'].includes(value.status) ||
     !value.file || typeof value.file.type !== 'string' || typeof value.file.data !== 'string') {
     throw new Error('The backup contains an invalid statement record.');
   }
@@ -207,8 +207,16 @@ function validateStatement(value: SerializedStatement, ids: Set<string>): SavedS
   const bytes = base64ToBytes(value.file.data);
   if (bytes.length !== value.size) throw new Error('A statement file in the backup is incomplete.');
   if (value.analysisError !== undefined && (typeof value.analysisError !== 'string' || value.analysisError.length > 10_000)) throw new Error('A statement contains an invalid analysis error.');
+  if (value.mappingRequest !== undefined) {
+    const request = value.mappingRequest;
+    if (!request || !['csv', 'xlsx'].includes(request.source) || !Number.isSafeInteger(request.headerIndex) || request.headerIndex < 0 || request.headerIndex > 99 ||
+      !Array.isArray(request.headers) || request.headers.length < 3 || request.headers.length > 30 || request.headers.some(header => typeof header !== 'string' || header.length > 200) ||
+      !Array.isArray(request.preview) || request.preview.length > 5 || request.preview.some(row => !Array.isArray(row) || row.length !== request.headers.length || row.some(cell => typeof cell !== 'string' || cell.length > 1_000)) ||
+      (request.sheet !== undefined && (typeof request.sheet !== 'string' || request.sheet.length > 100))) throw new Error('A statement contains an invalid column-mapping request.');
+  }
   if (value.draft) validateDraft(value.draft as AnalysisDraft, value.status === 'confirmed');
   if ((value.status === 'confirmed' || value.status === 'ready') && !value.draft) throw new Error('A reviewed statement is missing its transactions.');
+  if (value.status === 'mapping' && !value.mappingRequest) throw new Error('A statement awaiting column mapping is missing its preview.');
   ids.add(value.id);
   const { file: _file, ...record } = value;
   const fileBytes = new Uint8Array(bytes.byteLength);

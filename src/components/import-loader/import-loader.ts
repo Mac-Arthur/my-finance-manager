@@ -43,7 +43,9 @@ export class ImportLoader {
     if (this.stage() === 'reading') return page ? 4 + (21 * +page[1]) / +page[2] : 8;
     return ({ reading: 25, extracting: 45, sorting: 68, building: 88, done: 100 } satisfies Record<ImportStage, number>)[this.stage()];
   });
-  protected readonly chips = computed(() => (this.summary()?.categories ?? []).slice(0, SLOTS.length).map((c, i) => ({
+  // Keep the loading experience neutral. Sensitive findings such as betting belong in the finished analysis,
+  // where they have amounts and context, rather than flashing past before the user can review them.
+  protected readonly chips = computed(() => (this.summary()?.categories ?? []).filter(c => c.id !== 'betting').slice(0, SLOTS.length).map((c, i) => ({
     ...c, icon: CATEGORIES[c.id].icon, left: i % 2 ? null : SLOTS[i][0], right: i % 2 ? SLOTS[i][0] : null, top: SLOTS[i][1], delay: i * 140,
   })));
   protected readonly rows = [0, 1, 2, 3, 4, 5];
