@@ -14,6 +14,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 })
 export class App {
   // Injected at the root so the theme is applied on every route, including 404.
+  // This is also the only place where we can listen to online/offline events.
   private readonly theme = inject(Theme);
   private readonly router = inject(Router);
   private readonly updates = inject(SwUpdate, { optional: true });
