@@ -98,8 +98,12 @@ const RULES: [RegExp, AnalysisRow['category']][] = [
 
 /** Rule-based suggestions only. Order matters: loans and own-account moves win over keywords. */
 export function categoryFor(name: string, detail: string, amount: number, owner?: string): AnalysisRow['category'] {
-  const text = `${name} ${detail}`;
+  // Official MTN reports use machine labels such as CASH_OUT, unlike the wallet export's CASH OUT.
+  const text = `${name} ${detail}`.replace(/_/g, ' ');
   if (/\b(loan|qwikloan|fido|bosea)\b/i.test(text)) return amount > 0 ? 'loan' : 'loan-repayment';
+  if (amount < 0 && /\bcash out\b/i.test(text)) return 'cash-out';
+  // A purchase reference can include the owner's name/number without being a transfer to their wallet.
+  if (amount < 0 && /\b(?:airtime|bundle|data|MTNAIRTIME)\b|MTNONLINEAIRTIMEVENDOR/i.test(text)) return 'airtime';
   if (mentionsOwner(text, owner)) return amount > 0 ? 'from-bank' : 'own-accounts';
   if (amount > 0) return 'received';
   return RULES.find(([pattern]) => pattern.test(text))?.[1] ?? 'transfers';

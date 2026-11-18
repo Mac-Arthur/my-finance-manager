@@ -109,6 +109,12 @@ describe('PDF table reconstruction', () => {
     expect(categoryFor('INTEROPERABILITY PULL OVA', 'MOMO USER MAC-ARTHUR IMMANUEL JUSTICE from Consolidated Bank', 100, owner)).toBe('from-bank');
     expect(categoryFor('KELVIN MAC- ARTHUR', 'MOMO USER Bsh', 20, owner)).toBe('received');
     expect(categoryFor('VICKYWALA ENTERPRISE', 'CASH OUT NationalId--', -50, owner)).toBe('cash-out');
+    expect(categoryFor('TEST AGENT', 'CASH_OUT NationalId-- Internal', -50, owner)).toBe('cash-out');
+    expect(categoryFor(owner, 'CASH_OUT NationalId-- Internal', -50, owner)).toBe('cash-out');
+    expect(categoryFor('TEST AGENT', 'CASH_IN Internal', 50, owner)).toBe('received');
+    expect(categoryFor('TELECEL PUSH OVA', `PAYMENT ${owner},233200000000,Data mmipush`, -9, owner)).toBe('airtime');
+    expect(categoryFor('MTNAIRTIME for 233200000000', 'PAYMENT', -10, owner)).toBe('airtime');
+    expect(categoryFor('MTNONLINEAIRTIMEVENDOR', 'PAYMENT', -6, owner)).toBe('airtime');
     expect(categoryFor('233559133863@ MTNONLINEAIRTIMEVENDOR', 'AIRTIME -', -2, owner)).toBe('airtime');
     expect(categoryFor('Debit.Inv2 .', 'DEBIT SportyBet', -20, owner)).toBe('betting');
     expect(categoryFor('CHRISTOPHER AKAADI', 'MOMO USER Waakye', -28, owner)).toBe('food');

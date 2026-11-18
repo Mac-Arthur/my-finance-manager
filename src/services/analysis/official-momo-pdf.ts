@@ -98,7 +98,8 @@ function statementMeta(page: PdfCell[]): StatementMeta & { wallet?: string } {
  * MTN's official landscape "Mobile Money Transaction History" report.
  *
  * Text in a visual row is emitted on several baselines because names wrap around vertically centred numbers.
- * The date baseline is therefore the row anchor; financial cells are accepted only from a narrow band around it.
+ * The date baseline is therefore the row anchor. Wrapped text is bounded by neighbouring rows;
+ * financial cells must sit on the date baseline, even when the report is scaled to a smaller page.
  */
 export function officialMomoPdfTable(pages: PdfCell[][]): { table: string[][]; text: string; meta: StatementMeta; warnings?: string[] } | null {
   const firstText = (pages[0] ?? []).map(cell => cell.text.toUpperCase()).join(' ');
@@ -108,23 +109,33 @@ export function officialMomoPdfTable(pages: PdfCell[][]): { table: string[][]; t
 
   const rows: string[][] = [];
   const source: string[] = [];
-  let balanceFailures = 0;
+  const balanceFailures: string[] = [];
   let ignoredZeroEvents = 0;
   for (const [pageIndex, page] of pages.entries()) {
     const header = columnsFor(page);
     if (!header) throw new Error(`MTN transaction-history page ${pageIndex + 1} has an unexpected column layout. No partial import was created.`);
     const anchors = page.filter(cell => cell.y < header.y - 2 && DATE.test(cell.text.trim()) && columnFor(cell, header.columns) === 0);
     if (!anchors.length) throw new Error(`MTN transaction-history page ${pageIndex + 1} has no readable transactions. No partial import was created.`);
-    for (const anchor of anchors.sort((a, b) => b.y - a.y)) {
-      // The exporter uses 8pt text and places wrapped fragments 4.828 or 9.656 points from the numeric baseline.
-      const band = page.filter(cell => Math.abs(cell.y - anchor.y) <= 10.1 && cell.y < header.y - 2);
+    anchors.sort((a, b) => b.y - a.y);
+    for (const [index, anchor] of anchors.entries()) {
+      const radius = (anchor.h || 8) * 2.6;
+      const top = Math.min(header.y - 2, index ? (anchors[index - 1].y + anchor.y) / 2 : anchor.y + radius);
+      const bottom = index + 1 < anchors.length ? (anchor.y + anchors[index + 1].y) / 2 : anchor.y - radius;
+      const band = page.filter(cell => cell.y < top && cell.y > bottom && Math.abs(cell.y - anchor.y) <= radius);
       const values = new Map<OfficialColumn, string>();
-      for (const column of header.columns) values.set(column.id, text(band.filter(cell => columnFor(cell, header.columns) === header.columns.indexOf(column))));
+      for (const [columnIndex, column] of header.columns.entries()) {
+        const cells = band.filter(cell => columnFor(cell, header.columns) === columnIndex);
+        if (['amount', 'fee', 'tax', 'balanceBefore', 'balanceAfter'].includes(column.id)
+          && cells.some(cell => Math.abs(cell.y - anchor.y) > Math.max(.5, (anchor.h || 8) * .25))) {
+          throw new Error(`MTN transaction-history page ${pageIndex + 1} has misaligned amounts near ${anchor.text}. No partial import was created.`);
+        }
+        values.set(column.id, text(cells));
+      }
       const get = (id: OfficialColumn) => values.get(id)?.trim() ?? '';
       const date = get('date');
       const amount = get('amount').replace(/,/g, '');
-      const fee = get('fee').replace(/,/g, '') || '0';
-      const tax = get('tax').replace(/,/g, '') || '0';
+      const fee = get('fee').replace(/,/g, '');
+      const tax = get('tax').replace(/,/g, '');
       const before = get('balanceBefore').replace(/,/g, '');
       const after = get('balanceAfter').replace(/,/g, '');
       if (!DATE.test(date.split(/\s+/)[0]) || ![amount, fee, tax, before, after].every(value => MONEY.test(value))) {
@@ -148,20 +159,20 @@ export function officialMomoPdfTable(pages: PdfCell[][]): { table: string[][]; t
         ? get('toName') || reference || get('type')
         : get('fromName') || get('reference') || 'Money received';
       const expected = Number(before) + (incoming ? Number(amount) : -Number(amount)) - Number(fee) - Number(tax);
-      if (Math.abs(expected - Number(after)) > .011) balanceFailures++;
+      if (Math.abs(expected - Number(after)) > .011) balanceFailures.push(get('id') || date);
       rows.push([date, counterparty, signed, fee, after, get('id'), reference, 'GHS', get('type'), tax]);
       source.push([...values.values()].join(' | '));
     }
   }
   if (!rows.length) throw new Error('The MTN transaction-history report contained no transactions.');
-  if (balanceFailures > Math.max(10, rows.length * .02)) throw new Error('Too many MTN rows fail the balance-before/balance-after check. No partial import was created.');
+  if (balanceFailures.length > Math.max(10, rows.length * .02)) throw new Error('Too many MTN rows fail the balance-before/balance-after check. No partial import was created.');
   return {
     table: [['date', 'name', 'amount', 'fee', 'balance', 'transaction_id', 'reference', 'currency', 'payment_type', 'tax'], ...rows],
     text: source.join('\n'),
     meta: details,
     warnings: [
       ...(ignoredZeroEvents ? [`Ignored ${ignoredZeroEvents} MTN system ${ignoredZeroEvents === 1 ? 'event' : 'events'} that had zero amount, zero fees and no balance change.`] : []),
-      ...(balanceFailures ? [`${balanceFailures} MTN payment rows do not follow the printed balance-before/balance-after equation. They were kept for review because the remaining rows verified.`] : []),
+      ...(balanceFailures.length ? [`${balanceFailures.length} MTN payment rows do not follow the printed balance-before/balance-after equation. They were kept for review because the remaining rows verified. Check transaction IDs: ${balanceFailures.join(', ')}.`] : []),
     ],
   };
 }

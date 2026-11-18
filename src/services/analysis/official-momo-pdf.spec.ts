@@ -68,4 +68,48 @@ describe('Official MTN Mobile Money Transaction History PDF', () => {
     expect(extracted.meta?.owner).toBe('TEST PERSON');
     expect(draft.rows.map(row => row.amountMinor)).toEqual([-1000, 5000]);
   });
+
+  it('keeps wrapped names in their own rows on a scaled multipage report', () => {
+    // The sample uses roughly 4.7pt body text, with names on several baselines.
+    const page = compactFixture()[0].map(item => ({
+      ...item, x: item.x * .59, y: item.y * .59, w: item.w! * .59, h: item.h! * .59,
+    }));
+    const second = page.map(item => ({ ...item, text: item.text === 'TX2' ? 'TX4' : item.text === 'TX1' ? 'TX3' : item.text }));
+    const extracted = pdfTable([page, second]);
+    const draft = rowsToDraft(extracted.table, extracted.text, extracted.meta);
+    expect(draft.rows.map(row => row.name)).toEqual(['FOOD SHOP', 'SENDER NAME', 'FOOD SHOP', 'SENDER NAME']);
+    expect(draft.rows.map(row => row.amountMinor)).toEqual([-1000, 5000, -1000, 5000]);
+    expect(draft.rows[0].date).toBe('2026-11-13T11:00:00');
+  });
+
+  it('refuses missing fees or tax instead of inventing zero charges', () => {
+    for (const column of [6, 7]) {
+      const pages = fixture();
+      pages[0] = pages[0].filter(item => !(item.x === starts[column] + 5 && item.y === 396));
+      expect(() => pdfTable(pages)).toThrow(/incomplete transaction/);
+    }
+  });
+
+  it('preserves all four lines of a tall recipient name', () => {
+    const page = compactFixture()[0].filter(item => !(item.x === starts[11] + 5 && [401, 391].includes(item.y)));
+    // First row has enough space above and below for a four-line cell, as on sample page 45.
+    page.push(...['FIRST', 'SECOND', 'THIRD', 'FOURTH'].map((word, i) => at(11, word, 408 - i * 8)));
+    const extracted = pdfTable([page]);
+    expect(rowsToDraft(extracted.table, extracted.text, extracted.meta).rows[0].name).toBe('FIRST SECOND THIRD FOURTH');
+  });
+
+  it('refuses financial values shifted off the date baseline', () => {
+    const pages = fixture();
+    pages[0].find(item => item.x === starts[5] + 5 && item.y === 396)!.y += 5;
+    expect(() => pdfTable(pages)).toThrow(/misaligned amounts/);
+  });
+
+  it('identifies printed balance anomalies without rewriting the payment', () => {
+    const pages = fixture();
+    pages[0].find(item => item.x === starts[9] + 5 && item.y === 396)!.text = '0';
+    const extracted = pdfTable(pages);
+    const draft = rowsToDraft(extracted.table, extracted.text, extracted.meta);
+    expect(draft.rows[0]).toMatchObject({ amountMinor: -1000, feeMinor: 60, balanceMinor: 0 });
+    expect(extracted.warnings?.some(warning => warning.includes('Check transaction IDs: TX2.'))).toBe(true);
+  });
 });
