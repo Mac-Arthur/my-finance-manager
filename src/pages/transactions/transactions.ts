@@ -1,6 +1,6 @@
 import { EmptyState } from '../../components/empty-state/empty-state';
 import { DatePipe } from '@angular/common';
-import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { CATEGORIES } from '../../data/categories';
 import { CategoryId, Transaction } from '../../models/finance';
 import { Finance } from '../../services/finance/finance';
@@ -21,6 +21,10 @@ export class Transactions {
   protected readonly Math = Math;
 
   protected readonly query = signal('');
+  protected readonly sortOrder = signal<'newest' | 'oldest'>('newest');
+  private readonly filterDialog = viewChild<ElementRef<HTMLDialogElement>>('filterDialog');
+  private readonly detailDialog = viewChild<ElementRef<HTMLDialogElement>>('detailDialog');
+  private returnFocus: HTMLElement | null = null;
   protected readonly direction = signal<'all' | 'in' | 'out'>('all');
   protected readonly category = signal<CategoryId | null>(null);
   protected readonly filterOpen = signal(false);
@@ -71,27 +75,28 @@ export class Transactions {
     () => (this.direction() === 'all' ? 0 : 1) + (this.category() ? 1 : 0),
   );
 
-  protected readonly draftResultCount = computed(() => {
-    const dir = this.draftDirection();
-    const cat = this.draftCategory();
-    return this.f.transactions().filter(
-      (t) =>
-        (dir === 'all' || (dir === 'in' ? t.amount > 0 : t.amount < 0)) &&
-        (!cat || t.category === cat),
-    ).length;
-  });
-
-  protected readonly filtered = computed(() => {
-    const q = this.query().trim().toLowerCase();
-    const dir = this.direction();
-    const cat = this.category();
-    return this.f.transactions().filter(
-      (t) =>
-        (dir === 'all' || (dir === 'in' ? t.amount > 0 : t.amount < 0)) &&
-        (!cat || t.category === cat) &&
-        (!q || `${t.name} ${t.reference} ${CATEGORIES[t.category].label}`.toLowerCase().includes(q)),
+  private matchingTransactions(direction: 'all' | 'in' | 'out', category: CategoryId | null) {
+    const query = this.query().trim().toLowerCase();
+    return this.f.transactions().filter(transaction =>
+      (direction === 'all' || (direction === 'in' ? transaction.amount > 0 : transaction.amount < 0)) &&
+      (!category || transaction.category === category) &&
+      (!query || `${transaction.name} ${transaction.reference} ${transaction.account} ${CATEGORIES[transaction.category].label}`.toLowerCase().includes(query)),
     );
-  });
+  }
+
+  protected readonly draftResultCount = computed(() =>
+    this.matchingTransactions(this.draftDirection(), this.draftCategory()).length,
+  );
+
+  protected readonly filtered = computed(() =>
+    this.matchingTransactions(this.direction(), this.category()).sort((a, b) =>
+      this.sortOrder() === 'newest' ? +b.date - +a.date : +a.date - +b.date),
+  );
+
+  protected readonly flow = computed(() => this.filtered().reduce((totals, transaction) => ({
+    incoming: totals.incoming + Math.max(0, transaction.amount),
+    outgoing: totals.outgoing + Math.max(0, -transaction.amount),
+  }), { incoming: 0, outgoing: 0 }));
 
   protected readonly visibleTransactions = computed(() => this.filtered().slice(0, this.visibleLimit()));
   protected readonly hasMore = computed(() => this.visibleTransactions().length < this.filtered().length);
@@ -116,7 +121,15 @@ export class Transactions {
 
   constructor() {
     effect(() => {
+      const filter = this.filterDialog()?.nativeElement;
+      const detail = this.detailDialog()?.nativeElement;
+      if (filter && !filter.open) filter.showModal();
+      if (detail && !detail.open) detail.showModal();
+    });
+    effect(() => {
       this.query();
+      this.sortOrder();
+      this.f.selectedRange();
       this.direction();
       this.category();
       this.f.accountSelection();
@@ -128,14 +141,23 @@ export class Transactions {
     this.visibleLimit.update(limit => limit + this.pageSize);
   }
 
+  protected clearFilters() {
+    this.query.set('');
+    this.direction.set('all');
+    this.category.set(null);
+  }
+
   protected openFilters() {
+    this.returnFocus = document.activeElement as HTMLElement;
     this.draftDirection.set(this.direction());
     this.draftCategory.set(this.category());
     this.filterOpen.set(true);
   }
 
   protected closeFilters() {
+    this.filterDialog()?.nativeElement.close();
     this.filterOpen.set(false);
+    this.returnFocus?.focus();
   }
 
   protected applyFilters() {
@@ -150,6 +172,7 @@ export class Transactions {
   }
 
   protected openTransaction(transaction: Transaction) {
+    this.returnFocus = document.activeElement as HTMLElement;
     this.filterOpen.set(false);
     this.selectedTransactionId.set(transaction.id);
     this.editorCategory.set(transaction.category);
@@ -157,6 +180,8 @@ export class Transactions {
   }
 
   protected closeTransaction() {
+    this.detailDialog()?.nativeElement.close();
+    this.returnFocus?.focus();
     this.selectedTransactionId.set(null);
     this.editorCategory.set(null);
     this.teachSimilar.set(false);
@@ -184,12 +209,6 @@ export class Transactions {
     const transaction = this.selectedTransaction();
     if (transaction) this.editorCategory.set(this.f.allTransactions().find(row => row.id === transaction.id)?.category ?? transaction.category);
     this.teachSimilar.set(false);
-  }
-
-  @HostListener('document:keydown.escape')
-  protected onEscape() {
-    this.closeFilters();
-    this.closeTransaction();
   }
 
   protected cat(id: CategoryId) {

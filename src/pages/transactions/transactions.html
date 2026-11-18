@@ -1,30 +1,48 @@
 @if (!f.hasData()) {
   <app-empty-state title="Your transaction history starts here" description="Add a statement to your library. Your overview will appear after transactions have been extracted and reviewed." />
 } @else {
-<header class="reveal mb-6">
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Transactions</h1>
-    <p class="mt-1 text-sm text-base-content/60">
-      {{ f.viewingAllAccounts() ? 'All accounts · ' : '' }}{{ filtered().length }} of {{ f.transactions().length }} · net {{ totalShown() | money: 'full' : true }}
-    </p>
-  </div>
+<header class="reveal mb-5">
+  <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-base-content/50">Your money trail</p>
+  <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Transactions</h1>
+  <p class="mt-2 text-sm text-base-content/60">Find a payment, follow your money, or fine-tune a category.</p>
 </header>
 
-<section class="panel reveal" style="--i: 1">
+<section class="flow-summary reveal" aria-label="Money movement in matching transactions">
+  <div class="flow-stat"><span>Money in</span><strong class="text-success">{{ flow().incoming | money }}</strong></div>
+  <div class="flow-stat"><span>Money out</span><strong>{{ flow().outgoing | money }}</strong></div>
+  <div class="flow-stat flow-stat--net"><span>Net movement</span><strong>{{ totalShown() | money: 'full' : true }}</strong></div>
+  <p class="flow-caption">Matching transactions{{ f.viewingAllAccounts() ? ' · All accounts' : '' }} · Includes transfers between your accounts.</p>
+</section>
+
+<section class="panel transaction-list reveal" style="--i: 1">
   <div class="flex items-center gap-2">
     <label class="input min-w-0 flex-1 rounded-full">
       <app-icon [path]="icons.search" class="size-4 opacity-50" />
       <input type="search" placeholder="Search transactions" aria-label="Search transactions" [value]="query()" (input)="query.set($any($event.target).value)" />
     </label>
     <button type="button" class="filter-trigger" [class.filter-trigger--active]="activeFilterCount() > 0"
-      [attr.aria-expanded]="filterOpen()" aria-controls="transaction-filters" (click)="openFilters()">
+      [attr.aria-expanded]="filterOpen()" aria-label="Filter transactions" aria-controls="transaction-filters" (click)="openFilters()">
       <app-icon [path]="icons.filter" class="size-4" />
-      <span class="hidden sm:inline">Filters</span>
+      <span>Filters</span>
       @if (activeFilterCount() > 0) {
         <span class="filter-count" aria-label="{{ activeFilterCount() }} active filters">{{ activeFilterCount() }}</span>
       }
     </button>
   </div>
+
+  <div class="list-toolbar">
+    <div class="seg flow-tabs" role="group" aria-label="Filter by money flow">
+      @for (d of ['all', 'in', 'out']; track d) {
+        <button type="button" [attr.aria-pressed]="direction() === d" (click)="direction.set($any(d))">{{ d === 'all' ? 'All' : d === 'in' ? 'Money in' : 'Money out' }}</button>
+      }
+    </div>
+    <label class="sort-control"><span class="sr-only">Sort transactions</span>
+      <select aria-label="Sort transactions" [value]="sortOrder()" (change)="sortOrder.set($any($event.target).value)">
+        <option value="newest">Newest first</option><option value="oldest">Oldest first</option>
+      </select>
+    </label>
+  </div>
+  <p class="result-count" role="status">{{ filtered().length }} of {{ f.transactions().length }} transactions <span aria-hidden="true">·</span> Select one for details</p>
 
   @if (activeFilterCount() > 0) {
     <div class="mt-3 flex flex-wrap items-center gap-2" aria-label="Active filters">
@@ -42,38 +60,38 @@
         </button>
       }
       <button type="button" class="ml-1 text-xs font-medium text-base-content/50 hover:text-base-content"
-        (click)="direction.set('all'); category.set(null)">Clear all</button>
+        (click)="clearFilters()">Clear all</button>
     </div>
   }
 
   @for (g of groups(); track g.date.toDateString(); let gi = $index) {
     <div class="reveal mt-5" [style.--i]="gi < 8 ? gi : 8">
-      <div class="mb-1 flex items-center justify-between text-xs font-medium text-base-content/50">
-        <span>{{ g.date | date: 'EEEE, d MMMM' }}</span>
-        <span class="tabular-nums">{{ g.net | money: 'full' : true }}</span>
+      <div class="day-heading">
+        <span>{{ g.date | date: 'EEE, d MMM y' }}</span>
+        <span class="tabular-nums">Net {{ g.net | money: 'full' : true }}</span>
       </div>
       <ul class="divide-y divide-base-content/5">
         @for (t of g.items; track t.id) {
           <li>
             <button type="button" class="transaction-row" (click)="openTransaction(t)" [attr.aria-label]="'View and edit ' + t.name">
-              <span class="icon-chip size-10 rounded-full" [class]="t.amount > 0 ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/70 dark:bg-base-content/10'">
+              <span class="transaction-icon icon-chip size-10 rounded-full" [class]="t.amount > 0 ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/70 dark:bg-base-content/10'">
                 <app-icon [path]="cat(t.category).icon" class="size-4" />
               </span>
-              <div class="min-w-0 flex-1 text-left">
-                <p class="truncate text-sm font-medium">{{ t.name }}</p>
-                <p class="truncate text-xs text-base-content/50">
+              <div class="transaction-description min-w-0 text-left">
+                <p class="transaction-name">{{ t.name }}</p>
+                <p class="transaction-subtitle text-xs text-base-content/50">
                   @if (f.viewingAllAccounts()) { {{ t.account }} · }
                   {{ cat(t.category).label }} · {{ t.date | date: 'h:mm a' }}
-                  @if (t.reference && t.reference !== '-' && t.reference !== 'Pay') { · “{{ t.reference }}” }
+
                 </p>
               </div>
-              <div class="shrink-0 text-right">
+              <div class="transaction-amount text-right">
                 <p class="text-sm font-semibold tabular-nums" [class.text-success]="t.amount > 0">{{ t.amount | money: 'full' : true }}</p>
                 @if (t.fee > 0) {
                   <p class="text-[11px] text-base-content/40 tabular-nums">fee {{ t.fee | money }}</p>
                 }
               </div>
-              <app-icon [path]="icons.chevron" class="size-3.5 shrink-0 text-base-content/25" />
+              <app-icon [path]="icons.chevron" class="transaction-chevron size-3.5 shrink-0 text-base-content/25" />
             </button>
           </li>
         }
@@ -86,6 +104,7 @@
       </span>
       <p class="text-sm font-medium">No transactions found</p>
       <p class="mt-1 text-xs text-base-content/50">Try another search or clear a filter.</p>
+      @if (query() || activeFilterCount()) { <button type="button" class="btn btn-ghost mt-4 rounded-full" (click)="clearFilters()">Clear search and filters</button> }
     </div>
   }
 
@@ -100,8 +119,8 @@
 </section>
 
 @if (filterOpen()) {
-  <div class="filter-backdrop" role="dialog" aria-modal="true" aria-labelledby="filter-title"
-    (click)="closeFilters()">
+  <dialog #filterDialog class="filter-backdrop sheet-dialog" aria-labelledby="filter-title"
+    (cancel)="closeFilters()" (click)="closeFilters()">
     <section id="transaction-filters" class="filter-sheet" (click)="$event.stopPropagation()">
       <div class="filter-sheet__handle" aria-hidden="true"></div>
       <header class="flex items-start justify-between gap-4">
@@ -157,17 +176,17 @@
         </button>
       </footer>
     </section>
-  </div>
+  </dialog>
 }
 
 @if (selectedTransaction(); as transaction) {
-  <div class="transaction-backdrop" role="dialog" aria-modal="true" aria-labelledby="transaction-title" (click)="closeTransaction()">
+  <dialog #detailDialog class="transaction-backdrop sheet-dialog" aria-labelledby="transaction-title" (cancel)="closeTransaction()" (click)="closeTransaction()">
     <section class="transaction-sheet" (click)="$event.stopPropagation()">
       <div class="transaction-sheet__handle" aria-hidden="true"></div>
       <header class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <p class="text-xs font-medium uppercase tracking-widest text-base-content/45">Transaction details</p>
-          <h2 id="transaction-title" class="mt-1 truncate text-xl font-semibold">{{ transaction.name }}</h2>
+          <h2 id="transaction-title" class="mt-1 break-words text-xl font-semibold">{{ transaction.name }}</h2>
           <p class="mt-1 text-2xl font-semibold tabular-nums" [class.text-success]="transaction.amount > 0">{{ transaction.amount | money: 'full' : true }}</p>
         </div>
         <button type="button" class="btn btn-ghost btn-circle btn-sm" aria-label="Close transaction" (click)="closeTransaction()">
@@ -181,7 +200,7 @@
         <div><dt>Fee</dt><dd>{{ transaction.fee | money }}</dd></div>
         <div><dt>Balance after</dt><dd>{{ transaction.balance === null ? 'Not provided' : (transaction.balance | money) }}</dd></div>
         @if (transaction.reference && transaction.reference !== '-') {
-          <div class="sm:col-span-2"><dt>Reference</dt><dd class="break-words">{{ transaction.reference }}</dd></div>
+          <div class="col-span-2"><dt>Reference</dt><dd class="break-words">{{ transaction.reference }}</dd></div>
         }
       </dl>
 
@@ -240,7 +259,7 @@
         </button>
       </footer>
     </section>
-  </div>
+  </dialog>
 }
 
 }
