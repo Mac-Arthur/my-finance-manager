@@ -43,7 +43,7 @@
     </h2>
     <p class="detail mt-2 min-h-10 text-center text-sm text-base-content/65" role="status" aria-live="polite">
       @switch (stage()) {
-        @case ('reading') { {{ store.progress() || 'Opening your file on this device…' }} }
+        @case ('reading') { @if (batch(); as b) { @if (b.total > 1 && b.files) { {{ b.count }} transactions so far<br /> } } {{ store.progress() || 'Opening your file on this device…' }} }
         @case ('extracting') {
           @if (summary(); as s) { Found <b class="text-base-content" [countUp]="s.count" countUpFormat="number" [countUpDuration]="1100"></b> transactions<br />{{ s.from | date: 'd MMM' }} – {{ s.to | date: 'd MMM y' }}
             @if (s.verified) { <span class="verified"><app-icon [path]="icons.check" class="size-3" [stroke]="3" /> Running balance verified</span> }
@@ -53,12 +53,15 @@
         @case ('building') {
           @if (summary(); as s) { Money in <b class="text-success" [countUp]="s.moneyIn" [countUpCurrency]="s.currency" [countUpDuration]="1100"></b> · Money out <b class="text-error" [countUp]="s.moneyOut" [countUpCurrency]="s.currency" [countUpDuration]="1100"></b> }
         }
-        @case ('done') { Opening your dashboard… }
+        @case ('done') {
+          @if (batch(); as b) { @if (b.total > 1) { <b class="text-base-content">{{ b.files }}</b> statements · <b class="text-base-content">{{ b.count }}</b> transactions<br /> } }
+          Opening your dashboard…
+        }
       }
     </p>
 
     <div class="mt-5 h-1.5 overflow-hidden rounded-full bg-base-content/10" role="progressbar" aria-label="Import progress" [attr.aria-valuenow]="percent()" aria-valuemin="0" aria-valuemax="100">
-      <div class="bar h-full rounded-full" [style.width.%]="percent()"></div>
+      <div class="bar h-full rounded-full" [style.transform]="'scaleX(' + percent() / 100 + ')'"></div>
     </div>
     <ol class="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
       @for (step of steps; track step.stage; let i = $index) {

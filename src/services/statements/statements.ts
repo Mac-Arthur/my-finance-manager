@@ -95,6 +95,8 @@ export class Statements {
   /** Drives the import animation. The stages are paced so people can follow what happened to their file. */
   readonly importStage = signal<ImportStage>('reading');
   readonly importSummary = signal<ImportSummary | null>(null);
+  /** Set while several files import in one run: which file is current, and what has been imported so far. */
+  readonly importBatch = signal<{ index: number; total: number; files: number; count: number } | null>(null);
   /** Set when a saved PDF needs its password before it can be read. */
   readonly passwordRequest = signal<{ id: string; name: string; incorrect: boolean } | null>(null);
 
@@ -122,23 +124,58 @@ export class Statements {
     finally { this.importing.set(false); }
   }
 
+  /**
+   * Import several files in one continuous run (one loader, one closing summary). Files that need a person
+   * (password, review, mapping) are skipped, saved in the library, and reported; the clean ones still import.
+   */
+  async importFiles(files: File[]): Promise<{ imported: number; transactions: number; attention: { id: string; outcome: ImportOutcome }[]; last: { id: string; outcome: ImportOutcome } | null } | null> {
+    if (this.busy() || this.importing() || !files.length) return null;
+    this.startImport();
+    const attention: { id: string; outcome: ImportOutcome }[] = [];
+    let imported = 0, transactions = 0, last: { id: string; outcome: ImportOutcome } | null = null;
+    let firstPassword: { id: string; name: string; incorrect: boolean } | null = null;
+    try {
+      for (const [index, file] of files.entries()) {
+        this.importBatch.set({ index, total: files.length, files: imported, count: transactions });
+        this.importSummary.set(null);
+        this.importStage.set('reading');
+        const id = await this.saveFile(file);
+        if (!id) continue;
+        const result = await this.runImport(id, undefined, false, files.length > 1 ? 0.6 : 1);
+        last = result;
+        if (result.outcome === 'imported') { imported++; transactions += this.items().find(item => item.id === id)?.draft?.rows.length ?? 0; }
+        else {
+          attention.push(result);
+          if (result.outcome === 'password') firstPassword ??= this.passwordRequest();
+        }
+      }
+      if (imported) {
+        this.importBatch.set({ index: files.length - 1, total: files.length, files: imported, count: transactions });
+        this.importStage.set('done');
+        await pause(1500);
+      }
+      this.passwordRequest.set(firstPassword);
+      return { imported, transactions, attention, last: attention[0] ?? last };
+    } finally { this.importing.set(false); this.importBatch.set(null); }
+  }
+
   private startImport() {
     this.importStage.set('reading');
     this.importSummary.set(null);
     this.importing.set(true);
   }
 
-  private async runImport(id: string, password?: string): Promise<{ id: string; outcome: ImportOutcome }> {
+  private async runImport(id: string, password?: string, finish = true, pace = 1): Promise<{ id: string; outcome: ImportOutcome }> {
     const started = Date.now();
     if (!await this.analyse(id, password)) return { id, outcome: this.passwordRequest()?.id === id ? 'password' : this.items().find(item => item.id === id)?.status === 'mapping' ? 'mapping' : 'error' };
     const draft = structuredClone(this.items().find(item => item.id === id)?.draft);
     if (!draft) return { id, outcome: 'error' };
-    await pause(1400 - (Date.now() - started));
+    await pause(1400 * pace - (Date.now() - started));
     this.importSummary.set(summarise(draft));
     this.importStage.set('extracting');
-    await pause(1300);
+    await pause(1300 * pace);
     this.importStage.set('sorting');
-    await pause(1700);
+    await pause(1700 * pace);
     // A misread layout breaks the running balance on a large share of rows; a few breaks are provider quirks
     // (airtime bought on credit, same-minute entries). Above 5%, a person checks before anything is imported.
     if (draft.balanceCheck && draft.balanceCheck.breaks > Math.max(2, draft.rows.length * 0.05)) return { id, outcome: 'review' };
@@ -150,10 +187,9 @@ export class Statements {
       draft.account = 'My wallet';
     }
     this.importStage.set('building');
-    const [confirmed] = await Promise.all([this.confirm(id, draft), pause(1300)]);
+    const [confirmed] = await Promise.all([this.confirm(id, draft), pause(1300 * pace)]);
     if (!confirmed) return { id, outcome: 'review' };
-    this.importStage.set('done');
-    await pause(1100);
+    if (finish) { this.importStage.set('done'); await pause(1100); }
     return { id, outcome: 'imported' };
   }
 

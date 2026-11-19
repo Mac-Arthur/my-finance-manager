@@ -28,7 +28,7 @@ export class Home implements OnDestroy {
   protected readonly categories = CATEGORIES;
   protected readonly Math = Math;
 
-  protected readonly period = signal('quarter');
+  protected readonly period = signal('year');
   protected readonly month = signal('');
   protected readonly currentMonth = (() => {
     const now = new Date();

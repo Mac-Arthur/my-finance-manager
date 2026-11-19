@@ -9,6 +9,10 @@
 }
 .loader-card {
   width: min(100%, 26rem); padding: 1.5rem 1.5rem 1.25rem;
+  /* The backdrop is already blurred. A second backdrop-filter on the card re-samples it every frame while the scene animates. */
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: color-mix(in srgb, var(--color-base-100) 94%, transparent);
+  contain: layout paint;
   animation: card-in 520ms cubic-bezier(.2, .9, .3, 1.2) both;
 }
 
@@ -17,12 +21,12 @@
 .halo {
   position: absolute; inset: 15% 25%; border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 45%, transparent), transparent 70%);
-  filter: blur(18px); animation: breathe 2.8s ease-in-out infinite;
+  animation: breathe 2.8s ease-in-out infinite; will-change: transform, opacity;
 }
 .orbit {
   position: absolute; left: 50%; top: 50%; border-radius: 50%;
   border: 1.5px dashed color-mix(in srgb, var(--color-base-content) 14%, transparent);
-  animation: spin 9s linear infinite;
+  animation: spin 9s linear infinite; will-change: transform;
 }
 .orbit span {
   position: absolute; top: -4px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%;
@@ -37,7 +41,7 @@
   padding: .6rem .55rem; border-radius: .7rem; overflow: hidden;
   background: var(--color-base-100);
   border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
-  box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35);
+  box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35); will-change: transform;
   animation: doc-in 600ms cubic-bezier(.2, .9, .3, 1.2) both, float 3.2s ease-in-out 600ms infinite;
 }
 [data-stage='sorting'] .doc { animation: doc-shrink 700ms ease-in-out forwards; }
@@ -110,17 +114,18 @@
 }
 .verified { display: flex; width: fit-content; align-items: center; gap: .3rem; margin: .4rem auto 0; padding: .1rem .55rem; border-radius: 99px; font-size: .72rem; font-weight: 600; color: var(--color-success); background: color-mix(in srgb, var(--color-success) 14%, transparent); animation: pop .4s .5s ease-out both; }
 .bar {
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), var(--color-primary));
-  background-size: 200% 100%; transition: width 700ms cubic-bezier(.2, .8, .2, 1);
-  animation: shimmer 1.8s linear infinite;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  width: 100%; transform-origin: left; will-change: transform;
+  transition: transform 700ms cubic-bezier(.2, .8, .2, 1);
 }
 .step { color: color-mix(in srgb, var(--color-base-content) 45%, transparent); transition: color 300ms; }
 .step__dot {
-  display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-weight: 600;
+  isolation: isolate; display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-weight: 600;
   background: color-mix(in srgb, var(--color-base-content) 8%, transparent); transition: background-color 300ms, color 300ms, transform 300ms;
 }
 .step.is-active { color: var(--color-base-content); }
-.step.is-active .step__dot { background: var(--color-primary); color: var(--color-primary-content); animation: ping 1.4s ease-out infinite; }
+.step.is-active .step__dot { background: var(--color-primary); color: var(--color-primary-content); position: relative; }
+.step.is-active .step__dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: var(--color-primary); animation: ping 1.4s ease-out infinite; z-index: -1; }
 .step.is-done { color: var(--color-base-content); }
 .step.is-done .step__dot { background: var(--color-success); color: var(--color-success-content); transform: scale(1.05); }
 
@@ -135,9 +140,10 @@
 @keyframes row-fill { 0% { transform: scaleX(.15); opacity: .4; } 50% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(.15); opacity: .4; } }
 @keyframes scan { 0% { transform: translateY(-2.2rem); } 100% { transform: translateY(8.25rem); } }
 @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
-@keyframes chip-out { from { opacity: 0; transform: scale(.3); left: 40%; top: 45%; } }
-@keyframes chip-out-r { from { opacity: 0; transform: scale(.3); right: 40%; top: 45%; } }
-.from-right { animation-name: chip-out-r, bob; }
+/* Transform and opacity only: animating left/top forces layout every frame and jumps when the animation ends. */
+@keyframes chip-out { from { opacity: 0; transform: translate(var(--dx, 40%), 40%) scale(.3); } }
+.chip-fly { --dx: 60%; will-change: transform; }
+.chip-fly.from-right { --dx: -60%; }
 @media (max-width: 30rem) { .extra { display: none; } }
 @keyframes bob { 50% { transform: translateY(-4px); } }
 @keyframes arc { to { stroke-dasharray: var(--len) 100; } }
@@ -145,7 +151,7 @@
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes burst { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-3.6rem) scale(.4); } }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
-@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 60%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+@keyframes ping { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(1.9); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }

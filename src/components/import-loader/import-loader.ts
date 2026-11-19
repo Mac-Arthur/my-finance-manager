@@ -35,10 +35,20 @@ export class ImportLoader {
   protected readonly steps = STEPS;
   protected readonly stage = this.store.importStage;
   protected readonly summary = this.store.importSummary;
-  protected readonly title = computed(() => TITLES[this.stage()]);
+  protected readonly title = computed(() => {
+    const b = this.batch();
+    if (b && b.total > 1 && this.stage() === 'reading') return `Reading statement ${b.index + 1} of ${b.total}`;
+    if (b && b.total > 1 && this.stage() === 'done') return 'Your dashboard is ready';
+    return TITLES[this.stage()];
+  });
   protected readonly stepIndex = computed(() => this.stage() === 'done' ? STEPS.length : STEPS.findIndex(s => s.stage === this.stage()));
   /** Reading progress comes from the real page count; later stages advance in fixed steps. */
+  protected readonly batch = this.store.importBatch;
   protected readonly percent = computed(() => {
+    const b = this.batch(), p = this.stagePercent();
+    return b && b.total > 1 && this.stage() !== 'done' ? ((b.index + p / 100) / b.total) * 100 : p;
+  });
+  private readonly stagePercent = computed(() => {
     const page = /page (\d+) of (\d+)/i.exec(this.store.progress());
     if (this.stage() === 'reading') return page ? 4 + (21 * +page[1]) / +page[2] : 8;
     return ({ reading: 25, extracting: 45, sorting: 68, building: 88, done: 100 } satisfies Record<ImportStage, number>)[this.stage()];
